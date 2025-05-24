@@ -6,7 +6,11 @@ Finance Note 是一个强大的 Obsidian 插件，用于个人财务管理。它
 
 ### 📝 基础功能
 - **交易记录管理**
-  - 支持收入/支出记录
+  - 支持多种交易类型：
+    - 收入（Income）
+    - 支出（Expense）
+    - 资产（Asset）
+    - 负债（Liability）
   - 每条记录包含：金额、时间、类型、分类、账户、描述等信息
   - 支持多币种（无需汇率换算）
   - 完整的增删改查功能
@@ -136,6 +140,32 @@ currency: CNY
 ```
 ```
 
+**添加资产记录**
+```markdown
+```finance-transaction
+date: 2024-03-20
+amount: 100000.00
+type: asset
+category: 股票
+account: 证券账户
+description: 购买腾讯股票
+currency: CNY
+```
+```
+
+**添加负债记录**
+```markdown
+```finance-transaction
+date: 2024-03-20
+amount: 500000.00
+type: liability
+category: 房贷
+account: 建设银行
+description: 购房贷款
+currency: CNY
+```
+```
+
 **批量导入交易记录**
 ```markdown
 ```finance-transaction-batch
@@ -156,6 +186,24 @@ currency: CNY
     "category": "工资",
     "account": "工商银行",
     "description": "3月工资",
+    "currency": "CNY"
+  },
+  {
+    "date": "2024-03-20",
+    "amount": 100000.00,
+    "type": "asset",
+    "category": "股票",
+    "account": "证券账户",
+    "description": "购买腾讯股票",
+    "currency": "CNY"
+  },
+  {
+    "date": "2024-03-20",
+    "amount": 500000.00,
+    "type": "liability",
+    "category": "房贷",
+    "account": "建设银行",
+    "description": "购房贷款",
     "currency": "CNY"
   }
 ]
@@ -422,4 +470,203 @@ sort:
 
 ---
 
-如果您觉得这个项目对您有帮助，请给一个 ⭐️ 支持我们！ 
+如果您觉得这个项目对您有帮助，请给一个 ⭐️ 支持我们！
+
+## 🏗️ 项目结构
+
+```
+finance-note/
+├── src/
+│   ├── components/        # UI 组件
+│   ├── services/         # 业务逻辑服务
+│   ├── types/           # TypeScript 类型定义
+│   ├── utils/           # 工具函数
+│   ├── modals/          # 模态框组件
+│   └── views/           # 视图组件
+├── styles/              # CSS 样式文件
+├── tests/              # 测试文件
+├── docs/               # 文档
+└── manifest.json       # 插件清单
+```
+
+## 💻 开发环境设置
+
+### 前置要求
+- Node.js >= 16
+- npm >= 7
+- Obsidian >= 1.0.0
+
+### 安装步骤
+1. 克隆仓库
+```bash
+git clone https://github.com/yourusername/finance-note.git
+cd finance-note
+```
+
+2. 安装依赖
+```bash
+npm install
+```
+
+3. 开发模式
+```bash
+npm run dev
+```
+
+4. 构建插件
+```bash
+npm run build
+```
+
+## 📚 API 文档
+
+### 交易记录 API
+
+#### 添加交易
+```typescript
+interface Transaction {
+    date: Date;
+    amount: number;
+    type: 'income' | 'expense' | 'asset' | 'liability';
+    category: string;
+    account: string;
+    description?: string;
+    currency: string;
+}
+
+// 添加单笔交易
+addTransaction(transaction: Transaction): Promise<void>;
+
+// 批量添加交易
+addTransactions(transactions: Transaction[]): Promise<void>;
+```
+
+#### 查询交易
+```typescript
+// 获取指定时间范围的交易
+getTransactions(startDate: Date, endDate: Date): Promise<Transaction[]>;
+
+// 按类型获取交易
+getTransactionsByType(type: TransactionType): Promise<Transaction[]>;
+
+// 按账户获取交易
+getTransactionsByAccount(account: string): Promise<Transaction[]>;
+```
+
+### 预算管理 API
+
+#### 预算操作
+```typescript
+interface Budget {
+    type: 'monthly' | 'yearly' | 'category';
+    amount: number;
+    category: string;
+    period: string;
+    description?: string;
+}
+
+// 添加预算
+addBudget(budget: Budget): Promise<void>;
+
+// 更新预算
+updateBudget(id: string, budget: Budget): Promise<void>;
+
+// 获取预算执行情况
+getBudgetStatus(budgetId: string): Promise<BudgetStatus>;
+```
+
+### 定期交易 API
+
+#### 定期交易操作
+```typescript
+interface RecurringTransaction {
+    type: 'income' | 'expense';
+    amount: number;
+    category: string;
+    account: string;
+    frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    startDate: Date;
+    endDate?: Date;
+    description?: string;
+    currency: string;
+}
+
+// 添加定期交易
+addRecurringTransaction(transaction: RecurringTransaction): Promise<void>;
+
+// 暂停定期交易
+pauseRecurringTransaction(id: string): Promise<void>;
+
+// 恢复定期交易
+resumeRecurringTransaction(id: string): Promise<void>;
+```
+
+### 数据可视化 API
+
+#### 图表生成
+```typescript
+interface ChartConfig {
+    type: 'line' | 'bar' | 'pie' | 'doughnut';
+    dimensions: {
+        x?: string;
+        y?: string;
+        category?: string;
+    };
+    display: {
+        title: string;
+        theme: 'light' | 'dark';
+        colors?: Record<string, string>;
+    };
+    filter: {
+        startDate?: Date;
+        endDate?: Date;
+        type?: string;
+        groupBy?: string;
+    };
+}
+
+// 生成图表
+generateChart(config: ChartConfig): Promise<Chart>;
+```
+
+## 🔍 调试指南
+
+### 开发工具
+- 使用 Obsidian 开发者工具（Ctrl/Cmd + Shift + I）
+- 查看控制台日志
+- 使用断点调试
+
+### 常见问题
+1. **插件无法加载**
+   - 检查 manifest.json 配置
+   - 确认构建文件存在
+   - 查看 Obsidian 控制台错误
+
+2. **数据同步问题**
+   - 检查文件权限
+   - 确认文件路径配置
+   - 验证数据格式
+
+3. **性能优化**
+   - 使用数据缓存
+   - 优化查询性能
+   - 减少不必要的渲染
+
+## 🧪 测试
+
+### 运行测试
+```bash
+# 运行单元测试
+npm run test
+
+# 运行集成测试
+npm run test:integration
+
+# 运行端到端测试
+npm run test:e2e
+```
+
+### 测试覆盖率
+```bash
+npm run test:coverage
+``` 
