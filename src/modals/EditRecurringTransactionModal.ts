@@ -15,7 +15,7 @@ export class EditRecurringTransactionModal extends Modal {
     private frequencySelect: HTMLSelectElement;
     private startDateInput: HTMLInputElement;
     private endDateInput: HTMLInputElement;
-    private currencyInput: HTMLInputElement;
+    private currencySelect: HTMLSelectElement;
 
     constructor(app: App, recurringTransactionService: RecurringTransactionService, transactionService: TransactionService, recurringTransaction: RecurringTransaction) {
         super(app);
@@ -112,10 +112,12 @@ export class EditRecurringTransactionModal extends Modal {
         // 货币
         const currencyGroup = form.createEl('div', {cls: 'form-group'});
         currencyGroup.createEl('label', {text: 'Currency'});
-        this.currencyInput = currencyGroup.createEl('input', {
-            type: 'text',
-            value: this.recurringTransaction.currency || 'CNY'
+        this.currencySelect = currencyGroup.createEl('select');
+        const settings = this.transactionService.getSettings();
+        settings.currencies.forEach(currency => {
+            this.currencySelect.createEl('option', {text: currency, value: currency});
         });
+        this.currencySelect.value = this.recurringTransaction.currency || settings.defaultCurrency;
 
         // 提交按钮
         const buttonGroup = form.createEl('div', {cls: 'form-group'});
@@ -137,7 +139,7 @@ export class EditRecurringTransactionModal extends Modal {
                     frequency: this.frequencySelect.value as 'daily' | 'weekly' | 'monthly' | 'yearly',
                     startDate: new Date(this.startDateInput.value),
                     endDate: this.endDateInput.value ? new Date(this.endDateInput.value) : undefined,
-                    currency: this.currencyInput.value
+                    currency: this.currencySelect.value
                 });
                 new Notice('Recurring transaction updated successfully');
                 this.close();

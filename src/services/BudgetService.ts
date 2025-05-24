@@ -105,6 +105,9 @@ export class BudgetService {
                     case 'Description':
                         currentBudget.description = value;
                         break;
+                    case 'Currency':
+                        currentBudget.currency = value;
+                        break;
                     case 'ID':
                         currentBudget.id = value;
                         break;
@@ -125,7 +128,8 @@ export class BudgetService {
 - Amount: ${budget.amount}
 - Category: ${budget.category}
 - Period: ${budget.period}
-- Description: ${budget.description}
+- Description: ${budget.description || ''}
+- Currency: ${budget.currency}
 - ID: ${budget.id}
 
 `;
@@ -268,14 +272,15 @@ export class BudgetService {
 
     private parseBudgetLine(line: string): Budget | null {
         try {
-            const match = line.match(/^- (.*?) - (.*?) - (.*?) - (.*?)$/);
+            const match = line.match(/^- (.*?) - (.*?) - (.*?) - (.*?) - (.*?)$/);
             if (match) {
-                const [_, amount, category, period, description] = match;
+                const [_, amount, category, period, currency, description] = match;
                 return {
                     id: crypto.randomUUID(),
                     amount: parseFloat(amount),
                     category: category.trim(),
                     period: period.trim() as 'monthly' | 'yearly',
+                    currency: currency.trim(),
                     description: description.trim() || undefined
                 };
             }

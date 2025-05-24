@@ -3,6 +3,7 @@ import FinancePlugin from './main';
 
 export interface FinanceSettings {
     defaultCurrency: string;
+    currencies: string[];
     defaultAccount: string;
     defaultCategories: string[];
     financeFilePath: string;
@@ -12,6 +13,7 @@ export interface FinanceSettings {
 
 export const DEFAULT_SETTINGS: FinanceSettings = {
     defaultCurrency: 'CNY',
+    currencies: ['CNY', 'USD', 'EUR', 'JPY', 'GBP', 'HKD', 'SGD', 'AUD', 'CAD'],
     defaultAccount: '现金',
     defaultCategories: ['餐饮', '交通', '购物', '娱乐', '住房', '医疗', '教育', '其他'],
     financeFilePath: 'Finance/Transactions',
@@ -36,11 +38,29 @@ export class FinanceSettingTab extends PluginSettingTab {
         new Setting(containerEl)
             .setName('Default Currency')
             .setDesc('Set the default currency for transactions')
+            .addDropdown(dropdown => {
+                this.plugin.settings.currencies.forEach(currency => {
+                    dropdown.addOption(currency, currency);
+                });
+                dropdown.setValue(this.plugin.settings.defaultCurrency)
+                    .onChange(async (value) => {
+                        this.plugin.settings.defaultCurrency = value;
+                        await this.plugin.saveSettings();
+                    });
+            });
+
+        new Setting(containerEl)
+            .setName('Available Currencies')
+            .setDesc('Set the available currencies (comma-separated currency codes)')
             .addText(text => text
-                .setPlaceholder('CNY')
-                .setValue(this.plugin.settings.defaultCurrency)
+                .setPlaceholder('CNY,USD,EUR,JPY,GBP,HKD,SGD,AUD,CAD')
+                .setValue(this.plugin.settings.currencies.join(','))
                 .onChange(async (value) => {
-                    this.plugin.settings.defaultCurrency = value;
+                    const currencies = value.split(',').map(c => c.trim().toUpperCase());
+                    this.plugin.settings.currencies = currencies;
+                    if (!currencies.includes(this.plugin.settings.defaultCurrency)) {
+                        this.plugin.settings.defaultCurrency = currencies[0] || 'CNY';
+                    }
                     await this.plugin.saveSettings();
                 }));
 

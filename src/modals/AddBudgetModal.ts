@@ -13,6 +13,7 @@ export class AddBudgetModal extends Modal {
     private monthInput: HTMLInputElement;
     private quarterInput: HTMLInputElement;
     private descriptionInput: HTMLInputElement;
+    private currencySelect: HTMLSelectElement;
 
     constructor(app: App, budgetService: BudgetService, transactionService: TransactionService) {
         super(app);
@@ -101,6 +102,15 @@ export class AddBudgetModal extends Modal {
             type: 'text'
         });
 
+        // 货币
+        const currencyGroup = form.createEl('div', {cls: 'form-group'});
+        currencyGroup.createEl('label', {text: 'Currency'});
+        this.currencySelect = currencyGroup.createEl('select');
+        const currencies = ['USD', 'EUR', 'GBP', 'JPY'];
+        currencies.forEach(currency => {
+            this.currencySelect.createEl('option', {text: currency, value: currency});
+        });
+
         // 提交按钮
         const buttonGroup = form.createEl('div', {cls: 'form-group'});
         const submitButton = buttonGroup.createEl('button', {
@@ -120,7 +130,8 @@ export class AddBudgetModal extends Modal {
                     amount: parseFloat(this.amountInput.value),
                     category: this.categorySelect.value,
                     period: this.periodSelect.value === 'month' ? 'monthly' : 'yearly',
-                    description: this.descriptionInput.value
+                    description: this.descriptionInput.value,
+                    currency: this.currencySelect.value
                 });
                 new Notice('Budget added successfully');
                 this.close();

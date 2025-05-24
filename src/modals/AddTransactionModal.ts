@@ -1,6 +1,7 @@
 import { App, Modal, Setting, Notice } from 'obsidian';
 import { TransactionService } from '../services/TransactionService';
 import { Transaction } from '../types/Transaction';
+import { FinanceSettings } from '../settings';
 
 export class AddTransactionModal extends Modal {
     private transactionService: TransactionService;
@@ -10,7 +11,7 @@ export class AddTransactionModal extends Modal {
     private category: string = '';
     private account: string = '';
     private description: string = '';
-    private currency: string = 'CNY'; // 使用默认值
+    private currency: string = '';
 
     constructor(app: App, transactionService: TransactionService) {
         super(app);
@@ -18,8 +19,10 @@ export class AddTransactionModal extends Modal {
         // 初始化默认值
         const categories = this.transactionService.getCategories();
         const accounts = this.transactionService.getAccounts();
+        const settings = this.transactionService.getSettings();
         this.category = categories[0] || '';
         this.account = accounts[0] || '';
+        this.currency = settings.defaultCurrency;
     }
 
     onOpen() {
@@ -92,10 +95,13 @@ export class AddTransactionModal extends Modal {
         // 货币
         new Setting(contentEl)
             .setName('Currency')
-            .addText(text => {
-                text.setValue(this.currency)
-                    .onChange(value => this.currency = value);
-                text.inputEl.setAttribute('required', 'true');
+            .addDropdown(dropdown => {
+                const settings = this.transactionService.getSettings();
+                settings.currencies.forEach(currency => {
+                    dropdown.addOption(currency, currency);
+                });
+                dropdown.setValue(this.currency);
+                dropdown.onChange(value => this.currency = value);
             });
 
         // 提交按钮

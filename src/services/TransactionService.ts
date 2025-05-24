@@ -33,6 +33,10 @@ export class TransactionService {
         this.eventBus = EventBus.getInstance();
     }
 
+    getSettings(): FinanceSettings {
+        return this.settings;
+    }
+
     async initialize(): Promise<void> {
         if (!this.initialized) {
             await this.loadTransactions();

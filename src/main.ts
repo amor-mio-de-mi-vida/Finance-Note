@@ -6,27 +6,10 @@ import { RecurringTransactionService } from './services/RecurringTransactionServ
 import { ExcelService } from './services/ExcelService';
 import { FinanceTableView, FINANCE_TABLE_VIEW } from './views/FinanceTableView';
 import { ChartView, CHART_VIEW_TYPE } from './views/ChartView';
-
-interface FinancePluginSettings {
-	defaultCurrency: string;
-	defaultAccount: string;
-	defaultCategories: string[];
-	financeFilePath: string;
-	budgetFilePath: string;
-	recurringTransactionsFilePath: string;
-}
-
-const DEFAULT_SETTINGS: FinancePluginSettings = {
-	defaultCurrency: 'CNY',
-	defaultAccount: '现金',
-	defaultCategories: ['餐饮', '交通', '购物', '娱乐', '住房', '医疗', '教育', '其他'],
-	financeFilePath: 'Finance',
-	budgetFilePath: 'Finance',
-	recurringTransactionsFilePath: 'Finance'
-}
+import { FinanceSettings, DEFAULT_SETTINGS } from './settings';
 
 export default class FinancePlugin extends Plugin {
-	settings: FinancePluginSettings;
+	settings: FinanceSettings;
 	transactionService: TransactionService;
 	budgetService: BudgetService;
 	recurringTransactionService: RecurringTransactionService;
@@ -104,7 +87,7 @@ export default class FinancePlugin extends Plugin {
 			id: 'finance:add-budget',
 			name: 'Add Budget',
 			callback: () => {
-				new AddBudgetModal(this.app, this.budgetService).open();
+				new AddBudgetModal(this.app, this.budgetService, this.transactionService).open();
 			}
 		});
 
@@ -255,7 +238,7 @@ class AddTransactionModal extends Modal {
 	private accountSelect: HTMLSelectElement;
 	private descriptionInput: HTMLInputElement;
 	private dateInput: HTMLInputElement;
-	private currencyInput: HTMLInputElement;
+	private currencySelect: HTMLSelectElement;
 
 	constructor(app: App, transactionService: TransactionService) {
 		super(app);
@@ -327,10 +310,12 @@ class AddTransactionModal extends Modal {
 		// 货币
 		const currencyGroup = form.createEl('div', {cls: 'form-group'});
 		currencyGroup.createEl('label', {text: 'Currency'});
-		this.currencyInput = currencyGroup.createEl('input', {
-			type: 'text',
-			value: 'CNY'
+		this.currencySelect = currencyGroup.createEl('select');
+		const settings = this.transactionService.getSettings();
+		settings.currencies.forEach(currency => {
+			this.currencySelect.createEl('option', {text: currency, value: currency});
 		});
+		this.currencySelect.value = settings.defaultCurrency;
 
 		// 提交按钮
 		const buttonGroup = form.createEl('div', {cls: 'form-group'});
@@ -349,7 +334,7 @@ class AddTransactionModal extends Modal {
 					category: this.categorySelect.value,
 					account: this.accountSelect.value,
 					description: this.descriptionInput.value,
-					currency: this.currencyInput.value
+					currency: this.currencySelect.value
 				};
 
 				await this.transactionService.addTransaction(transaction);
@@ -369,6 +354,7 @@ class AddTransactionModal extends Modal {
 
 class AddRecurringTransactionModal extends Modal {
 	recurringTransactionService: RecurringTransactionService;
+	private transactionService: TransactionService;
 	private amountInput: HTMLInputElement;
 	private typeSelect: HTMLSelectElement;
 	private categoryInput: HTMLInputElement;
@@ -377,10 +363,12 @@ class AddRecurringTransactionModal extends Modal {
 	private frequencySelect: HTMLSelectElement;
 	private startDateInput: HTMLInputElement;
 	private endDateInput: HTMLInputElement;
+	private currencySelect: HTMLSelectElement;
 
 	constructor(app: App, recurringTransactionService: RecurringTransactionService, transactionService: TransactionService) {
 		super(app);
 		this.recurringTransactionService = recurringTransactionService;
+		this.transactionService = transactionService;
 	}
 
 	onOpen() {
@@ -463,6 +451,16 @@ class AddRecurringTransactionModal extends Modal {
 			type: 'date'
 		});
 
+		// 货币
+		const currencyGroup = form.createEl('div', {cls: 'form-group'});
+		currencyGroup.createEl('label', {text: 'Currency'});
+		this.currencySelect = currencyGroup.createEl('select');
+		const settings = this.transactionService.getSettings();
+		settings.currencies.forEach(currency => {
+			this.currencySelect.createEl('option', {text: currency, value: currency});
+		});
+		this.currencySelect.value = settings.defaultCurrency;
+
 		// 提交按钮
 		const buttonGroup = form.createEl('div', {cls: 'form-group'});
 		const submitButton = buttonGroup.createEl('button', {
@@ -482,7 +480,7 @@ class AddRecurringTransactionModal extends Modal {
 					frequency: this.frequencySelect.value as 'daily' | 'weekly' | 'monthly' | 'yearly',
 					startDate: new Date(this.startDateInput.value),
 					endDate: this.endDateInput.value ? new Date(this.endDateInput.value) : undefined,
-					currency: 'CNY'
+					currency: this.currencySelect.value
 				});
 				new Notice('Recurring transaction added successfully');
 				this.close();
@@ -500,6 +498,7 @@ class AddRecurringTransactionModal extends Modal {
 
 class AddBudgetModal extends Modal {
 	budgetService: BudgetService;
+	private transactionService: TransactionService;
 	private categoryInput: HTMLInputElement;
 	private amountInput: HTMLInputElement;
 	private periodSelect: HTMLSelectElement;
@@ -507,10 +506,12 @@ class AddBudgetModal extends Modal {
 	private monthInput: HTMLInputElement;
 	private quarterInput: HTMLInputElement;
 	private descriptionInput: HTMLInputElement;
+	private currencySelect: HTMLSelectElement;
 
-	constructor(app: App, budgetService: BudgetService) {
+	constructor(app: App, budgetService: BudgetService, transactionService: TransactionService) {
 		super(app);
 		this.budgetService = budgetService;
+		this.transactionService = transactionService;
 	}
 
 	onOpen() {
@@ -594,6 +595,16 @@ class AddBudgetModal extends Modal {
 			type: 'text'
 		});
 
+		// 货币
+		const currencyGroup = form.createEl('div', {cls: 'form-group'});
+		currencyGroup.createEl('label', {text: 'Currency'});
+		this.currencySelect = currencyGroup.createEl('select');
+		const settings = this.transactionService.getSettings();
+		settings.currencies.forEach(currency => {
+			this.currencySelect.createEl('option', {text: currency, value: currency});
+		});
+		this.currencySelect.value = settings.defaultCurrency;
+
 		// 提交按钮
 		const buttonGroup = form.createEl('div', {cls: 'form-group'});
 		const submitButton = buttonGroup.createEl('button', {
@@ -613,7 +624,8 @@ class AddBudgetModal extends Modal {
 					amount: parseFloat(this.amountInput.value),
 					category: this.categoryInput.value,
 					period: this.periodSelect.value === 'month' ? 'monthly' : 'yearly',
-					description: this.descriptionInput.value
+					description: this.descriptionInput.value,
+					currency: this.currencySelect.value
 				});
 				new Notice('Budget added successfully');
 				this.close();

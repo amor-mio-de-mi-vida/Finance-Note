@@ -291,7 +291,7 @@ export class ChartService {
     async generateChart(query: string): Promise<HTMLElement> {
         try {
             const config = this.parseChartQuery(query);
-            const chartElement = document.createElement('canvas');
+        const chartElement = document.createElement('canvas');
             
             // 创建容器
             const container = document.createElement('div');
@@ -299,10 +299,10 @@ export class ChartService {
             container.style.height = '400px';
             container.appendChild(chartElement);
             
-            const theme = this.themes.get(config.theme) || this.themes.get('default')!;
-            
-            // 获取数据
-            const data = await this.getChartData(config);
+        const theme = this.themes.get(config.theme) || this.themes.get('default')!;
+
+        // 获取数据
+        const data = await this.getChartData(config);
             if (!data || !data.labels || !data.datasets) {
                 throw new Error('Invalid chart data');
             }
@@ -333,39 +333,39 @@ export class ChartService {
                 }));
             }));
             
-            const datasets = data.datasets.map((dataset, index) => ({
-                ...dataset,
-                borderColor: theme.colors[index % theme.colors.length],
+        const datasets = data.datasets.map((dataset, index) => ({
+            ...dataset,
+            borderColor: theme.colors[index % theme.colors.length],
                 backgroundColor: theme.colors[index % theme.colors.length] + '80',
-                borderWidth: 2,
-                pointRadius: 4,
-                pointHoverRadius: 6
-            }));
+            borderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6
+        }));
 
-            const chartConfig: ChartConfiguration = {
-                type: config.type,
-                data: {
+        const chartConfig: ChartConfiguration = {
+            type: config.type,
+            data: {
                     labels: data.labels,
                     datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 1000,
+                    easing: 'easeInOutQuart'
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: {
-                        duration: 1000,
-                        easing: 'easeInOutQuart'
-                    },
-                    interaction: {
-                        mode: 'nearest',
-                        intersect: false
-                    },
-                    plugins: {
-                        tooltip: {
+                interaction: {
+                    mode: 'nearest',
+                    intersect: false
+                },
+                plugins: {
+                    tooltip: {
                             enabled: config.display?.showTooltip ?? true,
-                            backgroundColor: theme.backgroundColor,
-                            titleColor: theme.textColor,
-                            bodyColor: theme.textColor,
-                            borderColor: theme.gridColor,
+                        backgroundColor: theme.backgroundColor,
+                        titleColor: theme.textColor,
+                        bodyColor: theme.textColor,
+                        borderColor: theme.gridColor,
                             borderWidth: 1,
                             padding: 12,
                             callbacks: {
@@ -423,15 +423,15 @@ export class ChartService {
                                     });
                                 }
                             }
-                        },
-                        legend: {
+                    },
+                    legend: {
                             display: config.display?.showLegend ?? true,
-                            position: 'top',
-                            labels: {
-                                color: theme.textColor,
-                                usePointStyle: true,
-                                padding: 20
-                            }
+                        position: 'top',
+                        labels: {
+                            color: theme.textColor,
+                            usePointStyle: true,
+                            padding: 20
+                        }
                         },
                         title: {
                             display: true,
@@ -445,16 +445,16 @@ export class ChartService {
                                 top: 10,
                                 bottom: 20
                             }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: {
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
                                 display: config.display?.showGrid ?? true,
-                                color: theme.gridColor
-                            },
-                            ticks: {
-                                color: theme.textColor
+                            color: theme.gridColor
+                        },
+                        ticks: {
+                            color: theme.textColor
                             },
                             title: {
                                 display: true,
@@ -464,14 +464,14 @@ export class ChartService {
                                     size: 12,
                                     weight: 'bold'
                                 }
-                            }
-                        },
-                        y: {
-                            grid: {
+                        }
+                    },
+                    y: {
+                        grid: {
                                 display: config.display?.showGrid ?? true,
-                                color: theme.gridColor
-                            },
-                            ticks: {
+                            color: theme.gridColor
+                        },
+                        ticks: {
                                 color: theme.textColor,
                                 callback: (value) => {
                                     return this.formatNumber(value as number, config.display?.numberFormat);

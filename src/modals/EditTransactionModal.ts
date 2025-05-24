@@ -1,129 +1,142 @@
-import { App, Modal, Notice } from 'obsidian';
+import { App, Modal, Setting, Notice } from 'obsidian';
 import { TransactionService } from '../services/TransactionService';
 import { Transaction } from '../types/Transaction';
 
 export class EditTransactionModal extends Modal {
     private transactionService: TransactionService;
     private transaction: Transaction;
-    private amountInput: HTMLInputElement;
-    private typeSelect: HTMLSelectElement;
-    private categorySelect: HTMLSelectElement;
-    private accountSelect: HTMLSelectElement;
-    private descriptionInput: HTMLInputElement;
-    private dateInput: HTMLInputElement;
-    private currencyInput: HTMLInputElement;
+    private date: string;
+    private amount: number;
+    private type: 'income' | 'expense';
+    private category: string;
+    private account: string;
+    private description: string;
+    private currency: string;
 
     constructor(app: App, transactionService: TransactionService, transaction: Transaction) {
         super(app);
         this.transactionService = transactionService;
         this.transaction = transaction;
+        this.date = new Date(transaction.date).toISOString().split('T')[0];
+        this.amount = transaction.amount;
+        this.type = transaction.type;
+        this.category = transaction.category;
+        this.account = transaction.account;
+        this.description = transaction.description || '';
+        this.currency = transaction.currency;
     }
 
     onOpen() {
-        const {contentEl} = this;
+        const { contentEl } = this;
         contentEl.empty();
         contentEl.addClass('finance-modal');
 
-        contentEl.createEl('h2', {text: 'Edit Transaction'});
-
-        // 创建表单
-        const form = contentEl.createEl('form');
-        form.addClass('finance-form');
+        contentEl.createEl('h2', { text: 'Edit Transaction' });
 
         // 日期
-        const dateGroup = form.createEl('div', {cls: 'form-group'});
-        dateGroup.createEl('label', {text: 'Date'});
-        this.dateInput = dateGroup.createEl('input', {
-            type: 'date',
-            value: new Date(this.transaction.date).toISOString().split('T')[0]
-        });
+        new Setting(contentEl)
+            .setName('Date')
+            .addText(text => {
+                text.setValue(this.date)
+                    .onChange(value => this.date = value);
+                text.inputEl.setAttribute('type', 'date');
+            });
 
         // 金额
-        const amountGroup = form.createEl('div', {cls: 'form-group'});
-        amountGroup.createEl('label', {text: 'Amount'});
-        this.amountInput = amountGroup.createEl('input', {
-            attr: {
-                type: 'number',
-                step: '0.01',
-                required: 'true'
-            },
-            value: this.transaction.amount.toString()
-        });
+        new Setting(contentEl)
+            .setName('Amount')
+            .addText(text => {
+                text.setValue(this.amount.toString())
+                    .onChange(value => this.amount = parseFloat(value) || 0);
+                text.inputEl.setAttribute('type', 'number');
+                text.inputEl.setAttribute('step', '0.01');
+                text.inputEl.setAttribute('required', 'true');
+            });
 
         // 类型
-        const typeGroup = form.createEl('div', {cls: 'form-group'});
-        typeGroup.createEl('label', {text: 'Type'});
-        this.typeSelect = typeGroup.createEl('select');
-        this.typeSelect.createEl('option', {text: 'Income', value: 'income'});
-        this.typeSelect.createEl('option', {text: 'Expense', value: 'expense'});
-        this.typeSelect.value = this.transaction.type;
+        new Setting(contentEl)
+            .setName('Type')
+            .addDropdown(dropdown => dropdown
+                .addOption('income', 'Income')
+                .addOption('expense', 'Expense')
+                .setValue(this.type)
+                .onChange(value => this.type = value as 'income' | 'expense'));
 
         // 分类
-        const categoryGroup = form.createEl('div', {cls: 'form-group'});
-        categoryGroup.createEl('label', {text: 'Category'});
-        this.categorySelect = categoryGroup.createEl('select');
-        const categories = this.transactionService.getCategories();
-        categories.forEach(category => {
-            this.categorySelect.createEl('option', {text: category, value: category});
-        });
-        this.categorySelect.value = this.transaction.category;
+        new Setting(contentEl)
+            .setName('Category')
+            .addDropdown(dropdown => {
+                const categories = this.transactionService.getCategories();
+                categories.forEach(category => {
+                    dropdown.addOption(category, category);
+                });
+                dropdown.setValue(this.category);
+                dropdown.onChange(value => this.category = value);
+            });
 
         // 账户
-        const accountGroup = form.createEl('div', {cls: 'form-group'});
-        accountGroup.createEl('label', {text: 'Account'});
-        this.accountSelect = accountGroup.createEl('select');
-        const accounts = this.transactionService.getAccounts();
-        accounts.forEach(account => {
-            this.accountSelect.createEl('option', {text: account, value: account});
-        });
-        this.accountSelect.value = this.transaction.account;
+        new Setting(contentEl)
+            .setName('Account')
+            .addDropdown(dropdown => {
+                const accounts = this.transactionService.getAccounts();
+                accounts.forEach(account => {
+                    dropdown.addOption(account, account);
+                });
+                dropdown.setValue(this.account);
+                dropdown.onChange(value => this.account = value);
+            });
 
         // 描述
-        const descriptionGroup = form.createEl('div', {cls: 'form-group'});
-        descriptionGroup.createEl('label', {text: 'Description'});
-        this.descriptionInput = descriptionGroup.createEl('input', {
-            type: 'text',
-            value: this.transaction.description
-        });
+        new Setting(contentEl)
+            .setName('Description')
+            .addText(text => text
+                .setValue(this.description)
+                .onChange(value => this.description = value));
 
         // 货币
-        const currencyGroup = form.createEl('div', {cls: 'form-group'});
-        currencyGroup.createEl('label', {text: 'Currency'});
-        this.currencyInput = currencyGroup.createEl('input', {
-            type: 'text',
-            value: this.transaction.currency || 'CNY'
-        });
+        new Setting(contentEl)
+            .setName('Currency')
+            .addDropdown(dropdown => {
+                const settings = this.transactionService.getSettings();
+                settings.currencies.forEach(currency => {
+                    dropdown.addOption(currency, currency);
+                });
+                dropdown.setValue(this.currency);
+                dropdown.onChange(value => this.currency = value);
+            });
 
         // 提交按钮
-        const buttonGroup = form.createEl('div', {cls: 'form-group'});
-        const submitButton = buttonGroup.createEl('button', {
-            text: 'Save Changes',
-            cls: 'btn btn-primary'
-        });
-
-        submitButton.addEventListener('click', async (e) => {
-            e.preventDefault();
-            try {
-                await this.transactionService.updateTransaction({
-                    ...this.transaction,
-                    date: new Date(this.dateInput.value),
-                    amount: parseFloat(this.amountInput.value),
-                    type: this.typeSelect.value as 'income' | 'expense',
-                    category: this.categorySelect.value,
-                    account: this.accountSelect.value,
-                    description: this.descriptionInput.value,
-                    currency: this.currencyInput.value
-                });
-                new Notice('Transaction updated successfully');
-                this.close();
-            } catch (error) {
-                new Notice('Failed to update transaction: ' + error.message);
-            }
-        });
+        new Setting(contentEl)
+            .addButton(button => button
+                .setButtonText('Save')
+                .setCta()
+                .onClick(async () => {
+                    if (!this.amount || !this.category || !this.account || !this.currency) {
+                        new Notice('Please fill in all required fields');
+                        return;
+                    }
+                    try {
+                        const updatedTransaction: Transaction = {
+                            ...this.transaction,
+                            date: new Date(this.date),
+                            amount: this.amount,
+                            type: this.type,
+                            category: this.category,
+                            account: this.account,
+                            description: this.description || undefined,
+                            currency: this.currency
+                        };
+                        await this.transactionService.updateTransaction(updatedTransaction);
+                        new Notice('Transaction updated successfully');
+                        this.close();
+                    } catch (error) {
+                        new Notice('Failed to update transaction: ' + error.message);
+                    }
+                }));
     }
 
     onClose() {
-        const {contentEl} = this;
+        const { contentEl } = this;
         contentEl.empty();
     }
 } 

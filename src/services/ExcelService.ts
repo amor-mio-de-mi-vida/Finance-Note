@@ -71,7 +71,7 @@ export class ExcelService {
             },
             validations: {
                 type: ['收入', '支出'],
-                currency: ['CNY', 'USD', 'EUR', 'JPY']
+                currency: this.settings.currencies
             },
             examples: {
                 date: '2024-03-20',
@@ -80,7 +80,7 @@ export class ExcelService {
                 category: '餐饮',
                 account: '现金账户',
                 description: '午餐',
-                currency: 'CNY'
+                currency: this.settings.defaultCurrency
             }
         };
     }
@@ -268,10 +268,11 @@ export class ExcelService {
         } else if (file.name.includes('budget')) {
             for (const row of data) {
                 const budget: Omit<Budget, 'id'> = {
-                    amount: parseFloat(row.Amount),
-                    category: row.Category,
-                    period: row.Period.toLowerCase() === 'month' ? 'monthly' : 'yearly',
-                    description: row.Description
+                    amount: parseFloat(row['Amount']),
+                    category: row['Category'],
+                    period: row['Period'] as 'monthly' | 'yearly',
+                    description: row['Description'],
+                    currency: row['Currency'] || this.settings.defaultCurrency
                 };
                 await this.budgetService.addBudget(budget);
             }

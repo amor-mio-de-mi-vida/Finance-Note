@@ -1,98 +1,118 @@
-import { App, Modal, Notice } from 'obsidian';
+import { App, Modal, Setting, Notice } from 'obsidian';
 import { BudgetService } from '../services/BudgetService';
+import { TransactionService } from '../services/TransactionService';
 import { Budget } from '../types/Budget';
 
 export class EditBudgetModal extends Modal {
     private budgetService: BudgetService;
+    private transactionService: TransactionService;
     private budget: Budget;
-    private amountInput: HTMLInputElement;
-    private categoryInput: HTMLInputElement;
-    private periodSelect: HTMLSelectElement;
-    private descriptionInput: HTMLInputElement;
+    private amount: number;
+    private category: string;
+    private period: 'monthly' | 'yearly';
+    private description: string;
+    private currency: string;
 
-    constructor(app: App, budgetService: BudgetService, budget: Budget) {
+    constructor(app: App, budgetService: BudgetService, transactionService: TransactionService, budget: Budget) {
         super(app);
         this.budgetService = budgetService;
+        this.transactionService = transactionService;
         this.budget = budget;
+        this.amount = budget.amount;
+        this.category = budget.category;
+        this.period = budget.period;
+        this.description = budget.description || '';
+        this.currency = budget.currency;
     }
 
     onOpen() {
-        const {contentEl} = this;
+        const { contentEl } = this;
         contentEl.empty();
         contentEl.addClass('finance-modal');
 
-        contentEl.createEl('h2', {text: 'Edit Budget'});
-
-        // 创建表单
-        const form = contentEl.createEl('form');
-        form.addClass('finance-form');
+        contentEl.createEl('h2', { text: 'Edit Budget' });
 
         // 金额
-        const amountGroup = form.createEl('div', {cls: 'form-group'});
-        amountGroup.createEl('label', {text: 'Amount'});
-        this.amountInput = amountGroup.createEl('input', {
-            attr: {
-                type: 'number',
-                step: '0.01',
-                required: 'true'
-            },
-            value: this.budget.amount.toString()
-        });
+        new Setting(contentEl)
+            .setName('Amount')
+            .addText(text => {
+                text.setValue(this.amount.toString())
+                    .onChange(value => this.amount = parseFloat(value) || 0);
+                text.inputEl.setAttribute('type', 'number');
+                text.inputEl.setAttribute('step', '0.01');
+                text.inputEl.setAttribute('required', 'true');
+            });
 
         // 分类
-        const categoryGroup = form.createEl('div', {cls: 'form-group'});
-        categoryGroup.createEl('label', {text: 'Category'});
-        this.categoryInput = categoryGroup.createEl('input', {
-            attr: {
-                type: 'text',
-                required: 'true'
-            },
-            value: this.budget.category
-        });
+        new Setting(contentEl)
+            .setName('Category')
+            .addDropdown(dropdown => {
+                const categories = this.transactionService.getCategories();
+                categories.forEach(category => {
+                    dropdown.addOption(category, category);
+                });
+                dropdown.setValue(this.category);
+                dropdown.onChange(value => this.category = value);
+            });
 
         // 周期
-        const periodGroup = form.createEl('div', {cls: 'form-group'});
-        periodGroup.createEl('label', {text: 'Period'});
-        this.periodSelect = periodGroup.createEl('select');
-        this.periodSelect.createEl('option', {text: 'Monthly', value: 'monthly'});
-        this.periodSelect.createEl('option', {text: 'Yearly', value: 'yearly'});
-        this.periodSelect.value = this.budget.period;
+        new Setting(contentEl)
+            .setName('Period')
+            .addDropdown(dropdown => dropdown
+                .addOption('monthly', 'Monthly')
+                .addOption('yearly', 'Yearly')
+                .setValue(this.period)
+                .onChange(value => this.period = value as 'monthly' | 'yearly'));
 
         // 描述
-        const descriptionGroup = form.createEl('div', {cls: 'form-group'});
-        descriptionGroup.createEl('label', {text: 'Description'});
-        this.descriptionInput = descriptionGroup.createEl('input', {
-            type: 'text',
-            value: this.budget.description || ''
-        });
+        new Setting(contentEl)
+            .setName('Description')
+            .addText(text => text
+                .setValue(this.description)
+                .onChange(value => this.description = value));
+
+        // 货币
+        new Setting(contentEl)
+            .setName('Currency')
+            .addDropdown(dropdown => {
+                const settings = this.transactionService.getSettings();
+                settings.currencies.forEach(currency => {
+                    dropdown.addOption(currency, currency);
+                });
+                dropdown.setValue(this.currency);
+                dropdown.onChange(value => this.currency = value);
+            });
 
         // 提交按钮
-        const buttonGroup = form.createEl('div', {cls: 'form-group'});
-        const submitButton = buttonGroup.createEl('button', {
-            text: 'Save Changes',
-            cls: 'btn btn-primary'
-        });
-
-        submitButton.addEventListener('click', async (e) => {
-            e.preventDefault();
-            try {
-                await this.budgetService.updateBudget({
-                    ...this.budget,
-                    amount: parseFloat(this.amountInput.value),
-                    category: this.categoryInput.value,
-                    period: this.periodSelect.value as 'monthly' | 'yearly',
-                    description: this.descriptionInput.value || undefined
-                });
-                new Notice('Budget updated successfully');
-                this.close();
-            } catch (error) {
-                new Notice('Failed to update budget: ' + error.message);
-            }
-        });
+        new Setting(contentEl)
+            .addButton(button => button
+                .setButtonText('Save')
+                .setCta()
+                .onClick(async () => {
+                    if (!this.amount || !this.category || !this.currency) {
+                        new Notice('Please fill in all required fields');
+                        return;
+                    }
+                    try {
+                        const updatedBudget: Budget = {
+                            ...this.budget,
+                            amount: this.amount,
+                            category: this.category,
+                            period: this.period,
+                            description: this.description || undefined,
+                            currency: this.currency
+                        };
+                        await this.budgetService.updateBudget(updatedBudget);
+                        new Notice('Budget updated successfully');
+                        this.close();
+                    } catch (error) {
+                        new Notice('Failed to update budget: ' + error.message);
+                    }
+                }));
     }
 
     onClose() {
-        const {contentEl} = this;
+        const { contentEl } = this;
         contentEl.empty();
     }
 } 

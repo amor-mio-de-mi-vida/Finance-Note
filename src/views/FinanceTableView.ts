@@ -17,7 +17,7 @@ import { EventBus, EVENT_TYPES } from '../services/EventBus';
 export const FINANCE_TABLE_VIEW = 'finance-table-view';
 
 export class FinanceTableView extends ItemView {
-    static icon = 'dollar-sign';
+    static icon = 'dollar';
     private transactionService: TransactionService;
     private budgetService: BudgetService;
     private recurringTransactionService: RecurringTransactionService;
@@ -285,7 +285,7 @@ export class FinanceTableView extends ItemView {
                 cls: 'finance-edit-button'
             });
             editButton.addEventListener('click', () => {
-                new EditBudgetModal(this.app, this.budgetService, budget).open();
+                this.editBudget(budget);
             });
 
             const deleteButton = actionsCell.createEl('button', {
@@ -401,5 +401,14 @@ export class FinanceTableView extends ItemView {
                 this.render();
             }
         });
+    }
+
+    private async editBudget(budget: Budget) {
+        new EditBudgetModal(
+            this.app,
+            this.budgetService,
+            this.transactionService,
+            budget
+        ).open();
     }
 } 

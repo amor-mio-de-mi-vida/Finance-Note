@@ -42,7 +42,7 @@ __export(main_exports, {
   default: () => FinancePlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian12 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 
 // node_modules/@kurkle/color/dist/color.esm.js
 function round(v) {
@@ -16659,6 +16659,9 @@ var TransactionService = class {
     this.settings = settings;
     this.eventBus = EventBus.getInstance();
   }
+  getSettings() {
+    return this.settings;
+  }
   async initialize() {
     if (!this.initialized) {
       await this.loadTransactions();
@@ -16988,6 +16991,9 @@ var BudgetService = class {
           case "Description":
             currentBudget.description = value;
             break;
+          case "Currency":
+            currentBudget.currency = value;
+            break;
           case "ID":
             currentBudget.id = value;
             break;
@@ -17005,7 +17011,8 @@ var BudgetService = class {
 - Amount: ${budget.amount}
 - Category: ${budget.category}
 - Period: ${budget.period}
-- Description: ${budget.description}
+- Description: ${budget.description || ""}
+- Currency: ${budget.currency}
 - ID: ${budget.id}
 
 `;
@@ -17130,14 +17137,15 @@ var BudgetService = class {
   }
   parseBudgetLine(line) {
     try {
-      const match2 = line.match(/^- (.*?) - (.*?) - (.*?) - (.*?)$/);
+      const match2 = line.match(/^- (.*?) - (.*?) - (.*?) - (.*?) - (.*?)$/);
       if (match2) {
-        const [_, amount, category, period, description] = match2;
+        const [_, amount, category, period, currency, description] = match2;
         return {
           id: crypto.randomUUID(),
           amount: parseFloat(amount),
           category: category.trim(),
           period: period.trim(),
+          currency: currency.trim(),
           description: description.trim() || void 0
         };
       }
@@ -39273,7 +39281,7 @@ var ExcelService = class {
       },
       validations: {
         type: ["\u6536\u5165", "\u652F\u51FA"],
-        currency: ["CNY", "USD", "EUR", "JPY"]
+        currency: this.settings.currencies
       },
       examples: {
         date: "2024-03-20",
@@ -39282,7 +39290,7 @@ var ExcelService = class {
         category: "\u9910\u996E",
         account: "\u73B0\u91D1\u8D26\u6237",
         description: "\u5348\u9910",
-        currency: "CNY"
+        currency: this.settings.defaultCurrency
       }
     };
   }
@@ -39444,10 +39452,11 @@ var ExcelService = class {
     } else if (file.name.includes("budget")) {
       for (const row of data) {
         const budget = {
-          amount: parseFloat(row.Amount),
-          category: row.Category,
-          period: row.Period.toLowerCase() === "month" ? "monthly" : "yearly",
-          description: row.Description
+          amount: parseFloat(row["Amount"]),
+          category: row["Category"],
+          period: row["Period"],
+          description: row["Description"],
+          currency: row["Currency"] || this.settings.defaultCurrency
         };
         await this.budgetService.addBudget(budget);
       }
@@ -39487,88 +39496,78 @@ var EditTransactionModal = class extends import_obsidian4.Modal {
     super(app);
     this.transactionService = transactionService;
     this.transaction = transaction;
+    this.date = new Date(transaction.date).toISOString().split("T")[0];
+    this.amount = transaction.amount;
+    this.type = transaction.type;
+    this.category = transaction.category;
+    this.account = transaction.account;
+    this.description = transaction.description || "";
+    this.currency = transaction.currency;
   }
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("finance-modal");
     contentEl.createEl("h2", { text: "Edit Transaction" });
-    const form = contentEl.createEl("form");
-    form.addClass("finance-form");
-    const dateGroup = form.createEl("div", { cls: "form-group" });
-    dateGroup.createEl("label", { text: "Date" });
-    this.dateInput = dateGroup.createEl("input", {
-      type: "date",
-      value: new Date(this.transaction.date).toISOString().split("T")[0]
+    new import_obsidian4.Setting(contentEl).setName("Date").addText((text) => {
+      text.setValue(this.date).onChange((value) => this.date = value);
+      text.inputEl.setAttribute("type", "date");
     });
-    const amountGroup = form.createEl("div", { cls: "form-group" });
-    amountGroup.createEl("label", { text: "Amount" });
-    this.amountInput = amountGroup.createEl("input", {
-      attr: {
-        type: "number",
-        step: "0.01",
-        required: "true"
-      },
-      value: this.transaction.amount.toString()
+    new import_obsidian4.Setting(contentEl).setName("Amount").addText((text) => {
+      text.setValue(this.amount.toString()).onChange((value) => this.amount = parseFloat(value) || 0);
+      text.inputEl.setAttribute("type", "number");
+      text.inputEl.setAttribute("step", "0.01");
+      text.inputEl.setAttribute("required", "true");
     });
-    const typeGroup = form.createEl("div", { cls: "form-group" });
-    typeGroup.createEl("label", { text: "Type" });
-    this.typeSelect = typeGroup.createEl("select");
-    this.typeSelect.createEl("option", { text: "Income", value: "income" });
-    this.typeSelect.createEl("option", { text: "Expense", value: "expense" });
-    this.typeSelect.value = this.transaction.type;
-    const categoryGroup = form.createEl("div", { cls: "form-group" });
-    categoryGroup.createEl("label", { text: "Category" });
-    this.categorySelect = categoryGroup.createEl("select");
-    const categories = this.transactionService.getCategories();
-    categories.forEach((category) => {
-      this.categorySelect.createEl("option", { text: category, value: category });
+    new import_obsidian4.Setting(contentEl).setName("Type").addDropdown((dropdown) => dropdown.addOption("income", "Income").addOption("expense", "Expense").setValue(this.type).onChange((value) => this.type = value));
+    new import_obsidian4.Setting(contentEl).setName("Category").addDropdown((dropdown) => {
+      const categories = this.transactionService.getCategories();
+      categories.forEach((category) => {
+        dropdown.addOption(category, category);
+      });
+      dropdown.setValue(this.category);
+      dropdown.onChange((value) => this.category = value);
     });
-    this.categorySelect.value = this.transaction.category;
-    const accountGroup = form.createEl("div", { cls: "form-group" });
-    accountGroup.createEl("label", { text: "Account" });
-    this.accountSelect = accountGroup.createEl("select");
-    const accounts = this.transactionService.getAccounts();
-    accounts.forEach((account) => {
-      this.accountSelect.createEl("option", { text: account, value: account });
+    new import_obsidian4.Setting(contentEl).setName("Account").addDropdown((dropdown) => {
+      const accounts = this.transactionService.getAccounts();
+      accounts.forEach((account) => {
+        dropdown.addOption(account, account);
+      });
+      dropdown.setValue(this.account);
+      dropdown.onChange((value) => this.account = value);
     });
-    this.accountSelect.value = this.transaction.account;
-    const descriptionGroup = form.createEl("div", { cls: "form-group" });
-    descriptionGroup.createEl("label", { text: "Description" });
-    this.descriptionInput = descriptionGroup.createEl("input", {
-      type: "text",
-      value: this.transaction.description
+    new import_obsidian4.Setting(contentEl).setName("Description").addText((text) => text.setValue(this.description).onChange((value) => this.description = value));
+    new import_obsidian4.Setting(contentEl).setName("Currency").addDropdown((dropdown) => {
+      const settings = this.transactionService.getSettings();
+      settings.currencies.forEach((currency) => {
+        dropdown.addOption(currency, currency);
+      });
+      dropdown.setValue(this.currency);
+      dropdown.onChange((value) => this.currency = value);
     });
-    const currencyGroup = form.createEl("div", { cls: "form-group" });
-    currencyGroup.createEl("label", { text: "Currency" });
-    this.currencyInput = currencyGroup.createEl("input", {
-      type: "text",
-      value: this.transaction.currency || "CNY"
-    });
-    const buttonGroup = form.createEl("div", { cls: "form-group" });
-    const submitButton = buttonGroup.createEl("button", {
-      text: "Save Changes",
-      cls: "btn btn-primary"
-    });
-    submitButton.addEventListener("click", async (e) => {
-      e.preventDefault();
+    new import_obsidian4.Setting(contentEl).addButton((button) => button.setButtonText("Save").setCta().onClick(async () => {
+      if (!this.amount || !this.category || !this.account || !this.currency) {
+        new import_obsidian4.Notice("Please fill in all required fields");
+        return;
+      }
       try {
-        await this.transactionService.updateTransaction({
+        const updatedTransaction = {
           ...this.transaction,
-          date: new Date(this.dateInput.value),
-          amount: parseFloat(this.amountInput.value),
-          type: this.typeSelect.value,
-          category: this.categorySelect.value,
-          account: this.accountSelect.value,
-          description: this.descriptionInput.value,
-          currency: this.currencyInput.value
-        });
+          date: new Date(this.date),
+          amount: this.amount,
+          type: this.type,
+          category: this.category,
+          account: this.account,
+          description: this.description || void 0,
+          currency: this.currency
+        };
+        await this.transactionService.updateTransaction(updatedTransaction);
         new import_obsidian4.Notice("Transaction updated successfully");
         this.close();
       } catch (error) {
         new import_obsidian4.Notice("Failed to update transaction: " + error.message);
       }
-    });
+    }));
   }
   onClose() {
     const { contentEl } = this;
@@ -39579,70 +39578,67 @@ var EditTransactionModal = class extends import_obsidian4.Modal {
 // src/modals/EditBudgetModal.ts
 var import_obsidian5 = require("obsidian");
 var EditBudgetModal = class extends import_obsidian5.Modal {
-  constructor(app, budgetService, budget) {
+  constructor(app, budgetService, transactionService, budget) {
     super(app);
     this.budgetService = budgetService;
+    this.transactionService = transactionService;
     this.budget = budget;
+    this.amount = budget.amount;
+    this.category = budget.category;
+    this.period = budget.period;
+    this.description = budget.description || "";
+    this.currency = budget.currency;
   }
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("finance-modal");
     contentEl.createEl("h2", { text: "Edit Budget" });
-    const form = contentEl.createEl("form");
-    form.addClass("finance-form");
-    const amountGroup = form.createEl("div", { cls: "form-group" });
-    amountGroup.createEl("label", { text: "Amount" });
-    this.amountInput = amountGroup.createEl("input", {
-      attr: {
-        type: "number",
-        step: "0.01",
-        required: "true"
-      },
-      value: this.budget.amount.toString()
+    new import_obsidian5.Setting(contentEl).setName("Amount").addText((text) => {
+      text.setValue(this.amount.toString()).onChange((value) => this.amount = parseFloat(value) || 0);
+      text.inputEl.setAttribute("type", "number");
+      text.inputEl.setAttribute("step", "0.01");
+      text.inputEl.setAttribute("required", "true");
     });
-    const categoryGroup = form.createEl("div", { cls: "form-group" });
-    categoryGroup.createEl("label", { text: "Category" });
-    this.categoryInput = categoryGroup.createEl("input", {
-      attr: {
-        type: "text",
-        required: "true"
-      },
-      value: this.budget.category
+    new import_obsidian5.Setting(contentEl).setName("Category").addDropdown((dropdown) => {
+      const categories = this.transactionService.getCategories();
+      categories.forEach((category) => {
+        dropdown.addOption(category, category);
+      });
+      dropdown.setValue(this.category);
+      dropdown.onChange((value) => this.category = value);
     });
-    const periodGroup = form.createEl("div", { cls: "form-group" });
-    periodGroup.createEl("label", { text: "Period" });
-    this.periodSelect = periodGroup.createEl("select");
-    this.periodSelect.createEl("option", { text: "Monthly", value: "monthly" });
-    this.periodSelect.createEl("option", { text: "Yearly", value: "yearly" });
-    this.periodSelect.value = this.budget.period;
-    const descriptionGroup = form.createEl("div", { cls: "form-group" });
-    descriptionGroup.createEl("label", { text: "Description" });
-    this.descriptionInput = descriptionGroup.createEl("input", {
-      type: "text",
-      value: this.budget.description || ""
+    new import_obsidian5.Setting(contentEl).setName("Period").addDropdown((dropdown) => dropdown.addOption("monthly", "Monthly").addOption("yearly", "Yearly").setValue(this.period).onChange((value) => this.period = value));
+    new import_obsidian5.Setting(contentEl).setName("Description").addText((text) => text.setValue(this.description).onChange((value) => this.description = value));
+    new import_obsidian5.Setting(contentEl).setName("Currency").addDropdown((dropdown) => {
+      const settings = this.transactionService.getSettings();
+      settings.currencies.forEach((currency) => {
+        dropdown.addOption(currency, currency);
+      });
+      dropdown.setValue(this.currency);
+      dropdown.onChange((value) => this.currency = value);
     });
-    const buttonGroup = form.createEl("div", { cls: "form-group" });
-    const submitButton = buttonGroup.createEl("button", {
-      text: "Save Changes",
-      cls: "btn btn-primary"
-    });
-    submitButton.addEventListener("click", async (e) => {
-      e.preventDefault();
+    new import_obsidian5.Setting(contentEl).addButton((button) => button.setButtonText("Save").setCta().onClick(async () => {
+      if (!this.amount || !this.category || !this.currency) {
+        new import_obsidian5.Notice("Please fill in all required fields");
+        return;
+      }
       try {
-        await this.budgetService.updateBudget({
+        const updatedBudget = {
           ...this.budget,
-          amount: parseFloat(this.amountInput.value),
-          category: this.categoryInput.value,
-          period: this.periodSelect.value,
-          description: this.descriptionInput.value || void 0
-        });
+          amount: this.amount,
+          category: this.category,
+          period: this.period,
+          description: this.description || void 0,
+          currency: this.currency
+        };
+        await this.budgetService.updateBudget(updatedBudget);
         new import_obsidian5.Notice("Budget updated successfully");
         this.close();
       } catch (error) {
         new import_obsidian5.Notice("Failed to update budget: " + error.message);
       }
-    });
+    }));
   }
   onClose() {
     const { contentEl } = this;
@@ -39726,10 +39722,12 @@ var EditRecurringTransactionModal = class extends import_obsidian6.Modal {
     });
     const currencyGroup = form.createEl("div", { cls: "form-group" });
     currencyGroup.createEl("label", { text: "Currency" });
-    this.currencyInput = currencyGroup.createEl("input", {
-      type: "text",
-      value: this.recurringTransaction.currency || "CNY"
+    this.currencySelect = currencyGroup.createEl("select");
+    const settings = this.transactionService.getSettings();
+    settings.currencies.forEach((currency) => {
+      this.currencySelect.createEl("option", { text: currency, value: currency });
     });
+    this.currencySelect.value = this.recurringTransaction.currency || settings.defaultCurrency;
     const buttonGroup = form.createEl("div", { cls: "form-group" });
     const submitButton = buttonGroup.createEl("button", {
       text: "Save Changes",
@@ -39748,7 +39746,7 @@ var EditRecurringTransactionModal = class extends import_obsidian6.Modal {
           frequency: this.frequencySelect.value,
           startDate: new Date(this.startDateInput.value),
           endDate: this.endDateInput.value ? new Date(this.endDateInput.value) : void 0,
-          currency: this.currencyInput.value
+          currency: this.currencySelect.value
         });
         new import_obsidian6.Notice("Recurring transaction updated successfully");
         this.close();
@@ -39766,7 +39764,6 @@ var EditRecurringTransactionModal = class extends import_obsidian6.Modal {
 // src/modals/AddTransactionModal.ts
 var import_obsidian7 = require("obsidian");
 var AddTransactionModal = class extends import_obsidian7.Modal {
-  // 使用默认值
   constructor(app, transactionService) {
     super(app);
     this.date = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
@@ -39775,12 +39772,14 @@ var AddTransactionModal = class extends import_obsidian7.Modal {
     this.category = "";
     this.account = "";
     this.description = "";
-    this.currency = "CNY";
+    this.currency = "";
     this.transactionService = transactionService;
     const categories = this.transactionService.getCategories();
     const accounts = this.transactionService.getAccounts();
+    const settings = this.transactionService.getSettings();
     this.category = categories[0] || "";
     this.account = accounts[0] || "";
+    this.currency = settings.defaultCurrency;
   }
   onOpen() {
     const { contentEl } = this;
@@ -39815,9 +39814,13 @@ var AddTransactionModal = class extends import_obsidian7.Modal {
       dropdown.onChange((value) => this.account = value);
     });
     new import_obsidian7.Setting(contentEl).setName("Description").addText((text) => text.setValue(this.description).onChange((value) => this.description = value));
-    new import_obsidian7.Setting(contentEl).setName("Currency").addText((text) => {
-      text.setValue(this.currency).onChange((value) => this.currency = value);
-      text.inputEl.setAttribute("required", "true");
+    new import_obsidian7.Setting(contentEl).setName("Currency").addDropdown((dropdown) => {
+      const settings = this.transactionService.getSettings();
+      settings.currencies.forEach((currency) => {
+        dropdown.addOption(currency, currency);
+      });
+      dropdown.setValue(this.currency);
+      dropdown.onChange((value) => this.currency = value);
     });
     new import_obsidian7.Setting(contentEl).addButton((button) => button.setButtonText("Add").setCta().onClick(async () => {
       if (!this.amount || !this.category || !this.account || !this.currency) {
@@ -39919,6 +39922,13 @@ var AddBudgetModal = class extends import_obsidian8.Modal {
     this.descriptionInput = descriptionGroup.createEl("input", {
       type: "text"
     });
+    const currencyGroup = form.createEl("div", { cls: "form-group" });
+    currencyGroup.createEl("label", { text: "Currency" });
+    this.currencySelect = currencyGroup.createEl("select");
+    const currencies = ["USD", "EUR", "GBP", "JPY"];
+    currencies.forEach((currency) => {
+      this.currencySelect.createEl("option", { text: currency, value: currency });
+    });
     const buttonGroup = form.createEl("div", { cls: "form-group" });
     const submitButton = buttonGroup.createEl("button", {
       text: "Add Budget",
@@ -39935,7 +39945,8 @@ var AddBudgetModal = class extends import_obsidian8.Modal {
           amount: parseFloat(this.amountInput.value),
           category: this.categorySelect.value,
           period: this.periodSelect.value === "month" ? "monthly" : "yearly",
-          description: this.descriptionInput.value
+          description: this.descriptionInput.value,
+          currency: this.currencySelect.value
         });
         new import_obsidian8.Notice("Budget added successfully");
         this.close();
@@ -40018,10 +40029,12 @@ var AddRecurringTransactionModal = class extends import_obsidian9.Modal {
     });
     const currencyGroup = form.createEl("div", { cls: "form-group" });
     currencyGroup.createEl("label", { text: "Currency" });
-    this.currencyInput = currencyGroup.createEl("input", {
-      type: "text",
-      value: "CNY"
+    this.currencySelect = currencyGroup.createEl("select");
+    const settings = this.transactionService.getSettings();
+    settings.currencies.forEach((currency) => {
+      this.currencySelect.createEl("option", { text: currency, value: currency });
     });
+    this.currencySelect.value = settings.defaultCurrency;
     const buttonGroup = form.createEl("div", { cls: "form-group" });
     const submitButton = buttonGroup.createEl("button", {
       text: "Add Recurring Transaction",
@@ -40039,7 +40052,7 @@ var AddRecurringTransactionModal = class extends import_obsidian9.Modal {
           frequency: this.frequencySelect.value,
           startDate: new Date(this.startDateInput.value),
           endDate: this.endDateInput.value ? new Date(this.endDateInput.value) : void 0,
-          currency: this.currencyInput.value
+          currency: this.currencySelect.value
         };
         await this.recurringTransactionService.addRecurringTransaction(recurringTransaction);
         new import_obsidian9.Notice("Recurring transaction added successfully");
@@ -40266,7 +40279,7 @@ var FinanceTableView = class extends import_obsidian10.ItemView {
         cls: "finance-edit-button"
       });
       editButton.addEventListener("click", () => {
-        new EditBudgetModal(this.app, this.budgetService, budget).open();
+        this.editBudget(budget);
       });
       const deleteButton = actionsCell.createEl("button", {
         text: "Delete",
@@ -40367,8 +40380,16 @@ var FinanceTableView = class extends import_obsidian10.ItemView {
       }
     });
   }
+  async editBudget(budget) {
+    new EditBudgetModal(
+      this.app,
+      this.budgetService,
+      this.transactionService,
+      budget
+    ).open();
+  }
 };
-FinanceTableView.icon = "dollar-sign";
+FinanceTableView.icon = "dollar";
 
 // src/views/ChartView.ts
 var import_obsidian11 = require("obsidian");
@@ -40451,16 +40472,20 @@ var ChartView = class extends import_obsidian11.ItemView {
 };
 ChartView.icon = "dollar-sign";
 
-// src/main.ts
+// src/settings.ts
+var import_obsidian12 = require("obsidian");
 var DEFAULT_SETTINGS = {
   defaultCurrency: "CNY",
+  currencies: ["CNY", "USD", "EUR", "JPY", "GBP", "HKD", "SGD", "AUD", "CAD"],
   defaultAccount: "\u73B0\u91D1",
   defaultCategories: ["\u9910\u996E", "\u4EA4\u901A", "\u8D2D\u7269", "\u5A31\u4E50", "\u4F4F\u623F", "\u533B\u7597", "\u6559\u80B2", "\u5176\u4ED6"],
-  financeFilePath: "Finance",
-  budgetFilePath: "Finance",
-  recurringTransactionsFilePath: "Finance"
+  financeFilePath: "Finance/Transactions",
+  budgetFilePath: "Finance/Budgets",
+  recurringTransactionsFilePath: "Finance/RecurringTransactions"
 };
-var FinancePlugin = class extends import_obsidian12.Plugin {
+
+// src/main.ts
+var FinancePlugin = class extends import_obsidian13.Plugin {
   async onload() {
     await this.loadSettings();
     this.transactionService = new TransactionService(this.app, this.settings);
@@ -40518,7 +40543,7 @@ var FinancePlugin = class extends import_obsidian12.Plugin {
       id: "finance:add-budget",
       name: "Add Budget",
       callback: () => {
-        new AddBudgetModal2(this.app, this.budgetService).open();
+        new AddBudgetModal2(this.app, this.budgetService, this.transactionService).open();
       }
     });
     this.addCommand({
@@ -40578,7 +40603,7 @@ var FinancePlugin = class extends import_obsidian12.Plugin {
     }
   }
 };
-var FinanceSettingTab = class extends import_obsidian12.PluginSettingTab {
+var FinanceSettingTab = class extends import_obsidian13.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -40587,19 +40612,19 @@ var FinanceSettingTab = class extends import_obsidian12.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("h2", { text: "Finance Note Settings" });
-    new import_obsidian12.Setting(containerEl).setName("Currency").setDesc("Default currency for transactions").addText((text) => text.setPlaceholder("Enter currency code").setValue(this.plugin.settings.defaultCurrency).onChange(async (value) => {
+    new import_obsidian13.Setting(containerEl).setName("Currency").setDesc("Default currency for transactions").addText((text) => text.setPlaceholder("Enter currency code").setValue(this.plugin.settings.defaultCurrency).onChange(async (value) => {
       this.plugin.settings.defaultCurrency = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian12.Setting(containerEl).setName("Account").setDesc("Default account for transactions").addText((text) => text.setPlaceholder("Enter account name").setValue(this.plugin.settings.defaultAccount).onChange(async (value) => {
+    new import_obsidian13.Setting(containerEl).setName("Account").setDesc("Default account for transactions").addText((text) => text.setPlaceholder("Enter account name").setValue(this.plugin.settings.defaultAccount).onChange(async (value) => {
       this.plugin.settings.defaultAccount = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian12.Setting(containerEl).setName("Categories").setDesc("Default categories for transactions").addText((text) => text.setPlaceholder("Enter categories separated by commas").setValue(this.plugin.settings.defaultCategories.join(", ")).onChange(async (value) => {
+    new import_obsidian13.Setting(containerEl).setName("Categories").setDesc("Default categories for transactions").addText((text) => text.setPlaceholder("Enter categories separated by commas").setValue(this.plugin.settings.defaultCategories.join(", ")).onChange(async (value) => {
       this.plugin.settings.defaultCategories = value.split(",").map((c) => c.trim());
       await this.plugin.saveSettings();
     }));
-    new import_obsidian12.Setting(containerEl).setName("Finance Note File Path").setDesc("Default path for finance note files").addText((text) => text.setPlaceholder("Enter finance note file path").setValue(this.plugin.settings.financeFilePath).onChange(async (value) => {
+    new import_obsidian13.Setting(containerEl).setName("Finance Note File Path").setDesc("Default path for finance note files").addText((text) => text.setPlaceholder("Enter finance note file path").setValue(this.plugin.settings.financeFilePath).onChange(async (value) => {
       this.plugin.settings.financeFilePath = value;
       this.plugin.settings.budgetFilePath = value;
       this.plugin.settings.recurringTransactionsFilePath = value;
@@ -40607,7 +40632,7 @@ var FinanceSettingTab = class extends import_obsidian12.PluginSettingTab {
     }));
   }
 };
-var AddTransactionModal2 = class extends import_obsidian12.Modal {
+var AddTransactionModal2 = class extends import_obsidian13.Modal {
   constructor(app, transactionService) {
     super(app);
     this.transactionService = transactionService;
@@ -40660,10 +40685,12 @@ var AddTransactionModal2 = class extends import_obsidian12.Modal {
     });
     const currencyGroup = form.createEl("div", { cls: "form-group" });
     currencyGroup.createEl("label", { text: "Currency" });
-    this.currencyInput = currencyGroup.createEl("input", {
-      type: "text",
-      value: "CNY"
+    this.currencySelect = currencyGroup.createEl("select");
+    const settings = this.transactionService.getSettings();
+    settings.currencies.forEach((currency) => {
+      this.currencySelect.createEl("option", { text: currency, value: currency });
     });
+    this.currencySelect.value = settings.defaultCurrency;
     const buttonGroup = form.createEl("div", { cls: "form-group" });
     const submitButton = buttonGroup.createEl("button", {
       text: "Add Transaction",
@@ -40679,13 +40706,13 @@ var AddTransactionModal2 = class extends import_obsidian12.Modal {
           category: this.categorySelect.value,
           account: this.accountSelect.value,
           description: this.descriptionInput.value,
-          currency: this.currencyInput.value
+          currency: this.currencySelect.value
         };
         await this.transactionService.addTransaction(transaction);
-        new import_obsidian12.Notice("Transaction added successfully");
+        new import_obsidian13.Notice("Transaction added successfully");
         this.close();
       } catch (error) {
-        new import_obsidian12.Notice("Failed to add transaction: " + error.message);
+        new import_obsidian13.Notice("Failed to add transaction: " + error.message);
       }
     });
   }
@@ -40694,10 +40721,11 @@ var AddTransactionModal2 = class extends import_obsidian12.Modal {
     contentEl.empty();
   }
 };
-var AddRecurringTransactionModal2 = class extends import_obsidian12.Modal {
+var AddRecurringTransactionModal2 = class extends import_obsidian13.Modal {
   constructor(app, recurringTransactionService, transactionService) {
     super(app);
     this.recurringTransactionService = recurringTransactionService;
+    this.transactionService = transactionService;
   }
   onOpen() {
     const { contentEl } = this;
@@ -40759,6 +40787,14 @@ var AddRecurringTransactionModal2 = class extends import_obsidian12.Modal {
     this.endDateInput = endDateGroup.createEl("input", {
       type: "date"
     });
+    const currencyGroup = form.createEl("div", { cls: "form-group" });
+    currencyGroup.createEl("label", { text: "Currency" });
+    this.currencySelect = currencyGroup.createEl("select");
+    const settings = this.transactionService.getSettings();
+    settings.currencies.forEach((currency) => {
+      this.currencySelect.createEl("option", { text: currency, value: currency });
+    });
+    this.currencySelect.value = settings.defaultCurrency;
     const buttonGroup = form.createEl("div", { cls: "form-group" });
     const submitButton = buttonGroup.createEl("button", {
       text: "Add Recurring Transaction",
@@ -40776,12 +40812,12 @@ var AddRecurringTransactionModal2 = class extends import_obsidian12.Modal {
           frequency: this.frequencySelect.value,
           startDate: new Date(this.startDateInput.value),
           endDate: this.endDateInput.value ? new Date(this.endDateInput.value) : void 0,
-          currency: "CNY"
+          currency: this.currencySelect.value
         });
-        new import_obsidian12.Notice("Recurring transaction added successfully");
+        new import_obsidian13.Notice("Recurring transaction added successfully");
         this.close();
       } catch (error) {
-        new import_obsidian12.Notice("Failed to add recurring transaction: " + error.message);
+        new import_obsidian13.Notice("Failed to add recurring transaction: " + error.message);
       }
     });
   }
@@ -40790,10 +40826,11 @@ var AddRecurringTransactionModal2 = class extends import_obsidian12.Modal {
     contentEl.empty();
   }
 };
-var AddBudgetModal2 = class extends import_obsidian12.Modal {
-  constructor(app, budgetService) {
+var AddBudgetModal2 = class extends import_obsidian13.Modal {
+  constructor(app, budgetService, transactionService) {
     super(app);
     this.budgetService = budgetService;
+    this.transactionService = transactionService;
   }
   onOpen() {
     const { contentEl } = this;
@@ -40858,6 +40895,14 @@ var AddBudgetModal2 = class extends import_obsidian12.Modal {
     this.descriptionInput = descriptionGroup.createEl("input", {
       type: "text"
     });
+    const currencyGroup = form.createEl("div", { cls: "form-group" });
+    currencyGroup.createEl("label", { text: "Currency" });
+    this.currencySelect = currencyGroup.createEl("select");
+    const settings = this.transactionService.getSettings();
+    settings.currencies.forEach((currency) => {
+      this.currencySelect.createEl("option", { text: currency, value: currency });
+    });
+    this.currencySelect.value = settings.defaultCurrency;
     const buttonGroup = form.createEl("div", { cls: "form-group" });
     const submitButton = buttonGroup.createEl("button", {
       text: "Add Budget",
@@ -40874,12 +40919,13 @@ var AddBudgetModal2 = class extends import_obsidian12.Modal {
           amount: parseFloat(this.amountInput.value),
           category: this.categoryInput.value,
           period: this.periodSelect.value === "month" ? "monthly" : "yearly",
-          description: this.descriptionInput.value
+          description: this.descriptionInput.value,
+          currency: this.currencySelect.value
         });
-        new import_obsidian12.Notice("Budget added successfully");
+        new import_obsidian13.Notice("Budget added successfully");
         this.close();
       } catch (error) {
-        new import_obsidian12.Notice("Failed to add budget: " + error.message);
+        new import_obsidian13.Notice("Failed to add budget: " + error.message);
       }
     });
   }
