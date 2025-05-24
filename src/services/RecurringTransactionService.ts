@@ -22,9 +22,50 @@ export class RecurringTransactionService {
     }
 
     async initialize(): Promise<void> {
-        if (!this.initialized) {
-            await this.loadRecurringTransactions();
-            this.initialized = true;
+        try {
+            const { vault } = this.app;
+            const currentYear = new Date().getFullYear();
+            const yearPath = `${this.settings.financeFilePath}/${currentYear}`;
+            const newFilePath = `${yearPath}/recurring-transactions.finance.md`;
+            const oldFilePath = `${yearPath}/recurrent transactions.finance.md`;
+
+            // 确保年份目录存在
+            try {
+                await vault.createFolder(yearPath);
+            } catch (error) {
+                // 目录可能已存在，忽略错误
+            }
+
+            // 检查是否存在旧文件
+            const oldFile = vault.getAbstractFileByPath(oldFilePath);
+            if (oldFile && oldFile instanceof TFile) {
+                // 如果存在旧文件，读取其内容
+                const content = await vault.read(oldFile);
+                if (content) {
+                    // 检查新文件是否已存在
+                    const newFile = vault.getAbstractFileByPath(newFilePath);
+                    if (!newFile) {
+                        // 只有在文件不存在时才创建
+                        await vault.create(newFilePath, content);
+                    }
+                    // 删除旧文件
+                    await vault.delete(oldFile);
+                }
+            }
+
+            // 确保新文件存在
+            const file = vault.getAbstractFileByPath(newFilePath);
+            if (!file) {
+                await vault.create(newFilePath, this.getInitialContent(currentYear));
+            }
+
+            // 加载定期交易数据
+            if (!this.initialized) {
+                await this.loadRecurringTransactions();
+                this.initialized = true;
+            }
+        } catch (error) {
+            console.error('Failed to initialize recurring transactions:', error);
         }
     }
 
@@ -43,7 +84,7 @@ export class RecurringTransactionService {
     private async getOrCreateFinanceFile(year: number): Promise<TFile> {
         const { vault } = this.app;
         const yearPath = `${this.settings.financeFilePath}/${year}`;
-        const filePath = `${yearPath}/recurrent transactions.finance.md`;
+        const filePath = `${yearPath}/recurring-transactions.finance.md`;
 
         try {
             // 确保年份目录存在
@@ -289,5 +330,11 @@ export class RecurringTransactionService {
             console.error('Failed to parse recurring transaction line:', error);
         }
         return null;
+    }
+
+    private getFilePath(date: Date): string {
+        const yearPath = `${this.settings.financeFilePath}/${date.getFullYear()}`;
+        const filePath = `${yearPath}/recurring-transactions.finance.md`;
+        return filePath;
     }
 } 

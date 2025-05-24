@@ -16918,9 +16918,25 @@ var TransactionService = class {
     return this.settings;
   }
   async initialize() {
-    if (!this.initialized) {
-      await this.loadTransactions();
-      this.initialized = true;
+    try {
+      const { vault } = this.app;
+      const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
+      const yearPath = `${this.settings.financeFilePath}/${currentYear}`;
+      try {
+        await vault.createFolder(yearPath);
+      } catch (error) {
+      }
+      const filePath = `${yearPath}/transactions.finance.md`;
+      const file = vault.getAbstractFileByPath(filePath);
+      if (!file) {
+        await vault.create(filePath, this.getInitialContent(currentYear));
+      }
+      if (!this.initialized) {
+        await this.loadTransactions();
+        this.initialized = true;
+      }
+    } catch (error) {
+      console.error("Failed to initialize transactions:", error);
     }
   }
   async loadTransactions() {
@@ -17177,9 +17193,25 @@ var BudgetService = class {
     this.settings = settings;
   }
   async initialize() {
-    if (!this.initialized) {
-      await this.loadBudgets();
-      this.initialized = true;
+    try {
+      const { vault } = this.app;
+      const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
+      const yearPath = `${this.settings.financeFilePath}/${currentYear}`;
+      try {
+        await vault.createFolder(yearPath);
+      } catch (error) {
+      }
+      const filePath = `${yearPath}/budgets.finance.md`;
+      const file = vault.getAbstractFileByPath(filePath);
+      if (!file) {
+        await vault.create(filePath, this.getInitialContent(currentYear));
+      }
+      if (!this.initialized) {
+        await this.loadBudgets();
+        this.initialized = true;
+      }
+    } catch (error) {
+      console.error("Failed to initialize budgets:", error);
     }
   }
   async loadBudgets() {
@@ -17422,9 +17454,37 @@ var RecurringTransactionService = class {
     this.eventBus = EventBus.getInstance();
   }
   async initialize() {
-    if (!this.initialized) {
-      await this.loadRecurringTransactions();
-      this.initialized = true;
+    try {
+      const { vault } = this.app;
+      const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
+      const yearPath = `${this.settings.financeFilePath}/${currentYear}`;
+      const newFilePath = `${yearPath}/recurring-transactions.finance.md`;
+      const oldFilePath = `${yearPath}/recurrent transactions.finance.md`;
+      try {
+        await vault.createFolder(yearPath);
+      } catch (error) {
+      }
+      const oldFile = vault.getAbstractFileByPath(oldFilePath);
+      if (oldFile && oldFile instanceof import_obsidian3.TFile) {
+        const content = await vault.read(oldFile);
+        if (content) {
+          const newFile = vault.getAbstractFileByPath(newFilePath);
+          if (!newFile) {
+            await vault.create(newFilePath, content);
+          }
+          await vault.delete(oldFile);
+        }
+      }
+      const file = vault.getAbstractFileByPath(newFilePath);
+      if (!file) {
+        await vault.create(newFilePath, this.getInitialContent(currentYear));
+      }
+      if (!this.initialized) {
+        await this.loadRecurringTransactions();
+        this.initialized = true;
+      }
+    } catch (error) {
+      console.error("Failed to initialize recurring transactions:", error);
     }
   }
   async loadRecurringTransactions() {
@@ -17441,7 +17501,7 @@ var RecurringTransactionService = class {
   async getOrCreateFinanceFile(year) {
     const { vault } = this.app;
     const yearPath = `${this.settings.financeFilePath}/${year}`;
-    const filePath = `${yearPath}/recurrent transactions.finance.md`;
+    const filePath = `${yearPath}/recurring-transactions.finance.md`;
     try {
       await this.ensureDirectoryExists(yearPath);
       const file = vault.getAbstractFileByPath(filePath);
@@ -17662,6 +17722,11 @@ var RecurringTransactionService = class {
       console.error("Failed to parse recurring transaction line:", error);
     }
     return null;
+  }
+  getFilePath(date) {
+    const yearPath = `${this.settings.financeFilePath}/${date.getFullYear()}`;
+    const filePath = `${yearPath}/recurring-transactions.finance.md`;
+    return filePath;
   }
 };
 

@@ -26,9 +26,32 @@ export class BudgetService {
     }
 
     async initialize(): Promise<void> {
-        if (!this.initialized) {
-            await this.loadBudgets();
-            this.initialized = true;
+        try {
+            const { vault } = this.app;
+            const currentYear = new Date().getFullYear();
+            const yearPath = `${this.settings.financeFilePath}/${currentYear}`;
+
+            // 确保年份目录存在
+            try {
+                await vault.createFolder(yearPath);
+            } catch (error) {
+                // 目录可能已存在，忽略错误
+            }
+
+            // 确保文件存在
+            const filePath = `${yearPath}/budgets.finance.md`;
+            const file = vault.getAbstractFileByPath(filePath);
+            if (!file) {
+                await vault.create(filePath, this.getInitialContent(currentYear));
+            }
+
+            // 加载预算数据
+            if (!this.initialized) {
+                await this.loadBudgets();
+                this.initialized = true;
+            }
+        } catch (error) {
+            console.error('Failed to initialize budgets:', error);
         }
     }
 

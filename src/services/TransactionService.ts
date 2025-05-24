@@ -38,9 +38,32 @@ export class TransactionService {
     }
 
     async initialize(): Promise<void> {
-        if (!this.initialized) {
-            await this.loadTransactions();
-            this.initialized = true;
+        try {
+            const { vault } = this.app;
+            const currentYear = new Date().getFullYear();
+            const yearPath = `${this.settings.financeFilePath}/${currentYear}`;
+
+            // 确保年份目录存在
+            try {
+                await vault.createFolder(yearPath);
+            } catch (error) {
+                // 目录可能已存在，忽略错误
+            }
+
+            // 确保文件存在
+            const filePath = `${yearPath}/transactions.finance.md`;
+            const file = vault.getAbstractFileByPath(filePath);
+            if (!file) {
+                await vault.create(filePath, this.getInitialContent(currentYear));
+            }
+
+            // 加载交易数据
+            if (!this.initialized) {
+                await this.loadTransactions();
+                this.initialized = true;
+            }
+        } catch (error) {
+            console.error('Failed to initialize transactions:', error);
         }
     }
 
