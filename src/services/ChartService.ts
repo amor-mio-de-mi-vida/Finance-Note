@@ -312,6 +312,26 @@ export class ChartService {
             
             // 生成坐标轴标签
             const axisLabels = this.generateAxisLabels(x, y, groupBy, config.display);
+
+            // 存储原始交易数据用于tooltip显示
+            const transactionsByLabel = new Map<string, Transaction[]>();
+            await Promise.all(data.datasets.map(async (dataset, datasetIndex) => {
+                const groupValue = dataset.label || '';
+                await Promise.all((data.labels as string[]).map(async (label, index) => {
+                    const value = dataset.data[index] as number;
+                    if (value !== 0) {
+                        const transactions = await this.getTransactionsForDataPoint(
+                            label,
+                            groupValue,
+                            x,
+                            y,
+                            groupBy?.[0]
+                        );
+                        const key = `${label}-${groupValue}`;
+                        transactionsByLabel.set(key, transactions);
+                    }
+                }));
+            }));
             
             const datasets = data.datasets.map((dataset, index) => ({
                 ...dataset,
@@ -347,16 +367,60 @@ export class ChartService {
                             bodyColor: theme.textColor,
                             borderColor: theme.gridColor,
                             borderWidth: 1,
+                            padding: 12,
                             callbacks: {
                                 title: (items) => {
                                     const item = items[0];
                                     const label = item.label;
-                                    return `${axisLabels.x}: ${label}`;
+                                    const dataset = datasets[item.datasetIndex];
+                                    const key = `${label}-${dataset.label}`;
+                                    const transactions = transactionsByLabel.get(key) || [];
+                                    
+                                    // 生成标题
+                                    let title = `${axisLabels.x}: ${label}`;
+                                    if (groupBy && groupBy.length > 0) {
+                                        title += `\n${this.getDimensionLabel(groupBy[0])}: ${dataset.label}`;
+                                    }
+                                    return title;
                                 },
                                 label: (item) => {
                                     const dataset = datasets[item.datasetIndex];
                                     const value = item.raw as number;
-                                    return `${dataset.label}: ${this.formatNumber(value, config.display?.numberFormat)}`;
+                                    const label = item.label;
+                                    const key = `${label}-${dataset.label}`;
+                                    const transactions = transactionsByLabel.get(key) || [];
+                                    
+                                    // 生成标签
+                                    let labelText = `${this.formatNumber(value, config.display?.numberFormat)}`;
+                                    
+                                    // 如果有具体交易，显示交易数量
+                                    if (transactions.length > 0) {
+                                        labelText += ` (${transactions.length}笔交易)`;
+                                    }
+                                    
+                                    return labelText;
+                                },
+                                afterBody: (items) => {
+                                    const item = items[0];
+                                    const label = item.label;
+                                    const dataset = datasets[item.datasetIndex];
+                                    const key = `${label}-${dataset.label}`;
+                                    const transactions = transactionsByLabel.get(key) || [];
+                                    
+                                    if (transactions.length === 0) return [];
+                                    
+                                    // 显示详细交易信息
+                                    return transactions.map(transaction => {
+                                        const date = format(transaction.date, config.display?.dateFormat || 'yyyy-MM-dd');
+                                        const amount = this.formatNumber(transaction.amount, config.display?.numberFormat);
+                                        return [
+                                            `\n${date} ${transaction.type === 'income' ? '收入' : '支出'}`,
+                                            `\n金额: ${amount}`,
+                                            `\n类别: ${transaction.category}`,
+                                            `\n账户: ${transaction.account}`,
+                                            transaction.description ? `\n描述: ${transaction.description}` : null
+                                        ].filter(Boolean).join('\n');
+                                    });
                                 }
                             }
                         },
@@ -795,5 +859,39 @@ export class ChartService {
 
     setCustomTheme(theme: ChartTheme): void {
         this.themes.set(theme.name, theme);
+    }
+
+    private getDimensionLabel(dimension: 'date' | 'category' | 'account' | 'type'): string {
+        const labels: Record<string, string> = {
+            date: '日期',
+            category: '类别',
+            account: '账户',
+            type: '类型'
+        };
+        return labels[dimension] || dimension;
+    }
+
+    private async getTransactionsForDataPoint(
+        label: string,
+        groupValue: string,
+        xDimension: 'date' | 'category' | 'account' | 'type',
+        yDimension: 'amount' | 'count',
+        groupBy?: 'category' | 'account' | 'type'
+    ): Promise<Transaction[]> {
+        // 从当前活动的交易数据中筛选
+        const transactions = await this.transactionService.getTransactions({
+            startDate: undefined,
+            endDate: undefined,
+            categories: undefined,
+            accounts: undefined,
+            types: ['income', 'expense']
+        });
+        
+        return transactions.filter((transaction: Transaction) => {
+            const xValue = this.getDimensionValue(transaction, xDimension);
+            const groupValue = groupBy ? this.getDimensionValue(transaction, groupBy) : '';
+            
+            return xValue === label && (!groupBy || groupValue === groupValue);
+        });
     }
 } 

@@ -16115,6 +16115,24 @@ var ChartService = class {
       }
       const { x, y, groupBy } = config.dimensions || { x: "date", y: "amount" };
       const axisLabels = this.generateAxisLabels(x, y, groupBy, config.display);
+      const transactionsByLabel = /* @__PURE__ */ new Map();
+      await Promise.all(data.datasets.map(async (dataset, datasetIndex) => {
+        const groupValue = dataset.label || "";
+        await Promise.all(data.labels.map(async (label, index2) => {
+          const value = dataset.data[index2];
+          if (value !== 0) {
+            const transactions = await this.getTransactionsForDataPoint(
+              label,
+              groupValue,
+              x,
+              y,
+              groupBy == null ? void 0 : groupBy[0]
+            );
+            const key = `${label}-${groupValue}`;
+            transactionsByLabel.set(key, transactions);
+          }
+        }));
+      }));
       const datasets = data.datasets.map((dataset, index2) => ({
         ...dataset,
         borderColor: theme.colors[index2 % theme.colors.length],
@@ -16148,17 +16166,59 @@ var ChartService = class {
               bodyColor: theme.textColor,
               borderColor: theme.gridColor,
               borderWidth: 1,
+              padding: 12,
               callbacks: {
                 title: (items) => {
                   const item = items[0];
                   const label = item.label;
-                  return `${axisLabels.x}: ${label}`;
+                  const dataset = datasets[item.datasetIndex];
+                  const key = `${label}-${dataset.label}`;
+                  const transactions = transactionsByLabel.get(key) || [];
+                  let title = `${axisLabels.x}: ${label}`;
+                  if (groupBy && groupBy.length > 0) {
+                    title += `
+${this.getDimensionLabel(groupBy[0])}: ${dataset.label}`;
+                  }
+                  return title;
                 },
                 label: (item) => {
                   var _a2;
                   const dataset = datasets[item.datasetIndex];
                   const value = item.raw;
-                  return `${dataset.label}: ${this.formatNumber(value, (_a2 = config.display) == null ? void 0 : _a2.numberFormat)}`;
+                  const label = item.label;
+                  const key = `${label}-${dataset.label}`;
+                  const transactions = transactionsByLabel.get(key) || [];
+                  let labelText = `${this.formatNumber(value, (_a2 = config.display) == null ? void 0 : _a2.numberFormat)}`;
+                  if (transactions.length > 0) {
+                    labelText += ` (${transactions.length}\u7B14\u4EA4\u6613)`;
+                  }
+                  return labelText;
+                },
+                afterBody: (items) => {
+                  const item = items[0];
+                  const label = item.label;
+                  const dataset = datasets[item.datasetIndex];
+                  const key = `${label}-${dataset.label}`;
+                  const transactions = transactionsByLabel.get(key) || [];
+                  if (transactions.length === 0)
+                    return [];
+                  return transactions.map((transaction) => {
+                    var _a2, _b2;
+                    const date = format(transaction.date, ((_a2 = config.display) == null ? void 0 : _a2.dateFormat) || "yyyy-MM-dd");
+                    const amount = this.formatNumber(transaction.amount, (_b2 = config.display) == null ? void 0 : _b2.numberFormat);
+                    return [
+                      `
+${date} ${transaction.type === "income" ? "\u6536\u5165" : "\u652F\u51FA"}`,
+                      `
+\u91D1\u989D: ${amount}`,
+                      `
+\u7C7B\u522B: ${transaction.category}`,
+                      `
+\u8D26\u6237: ${transaction.account}`,
+                      transaction.description ? `
+\u63CF\u8FF0: ${transaction.description}` : null
+                    ].filter(Boolean).join("\n");
+                  });
                 }
               }
             },
@@ -16510,6 +16570,29 @@ var ChartService = class {
   }
   setCustomTheme(theme) {
     this.themes.set(theme.name, theme);
+  }
+  getDimensionLabel(dimension) {
+    const labels = {
+      date: "\u65E5\u671F",
+      category: "\u7C7B\u522B",
+      account: "\u8D26\u6237",
+      type: "\u7C7B\u578B"
+    };
+    return labels[dimension] || dimension;
+  }
+  async getTransactionsForDataPoint(label, groupValue, xDimension, yDimension, groupBy) {
+    const transactions = await this.transactionService.getTransactions({
+      startDate: void 0,
+      endDate: void 0,
+      categories: void 0,
+      accounts: void 0,
+      types: ["income", "expense"]
+    });
+    return transactions.filter((transaction) => {
+      const xValue = this.getDimensionValue(transaction, xDimension);
+      const groupValue2 = groupBy ? this.getDimensionValue(transaction, groupBy) : "";
+      return xValue === label && (!groupBy || groupValue2 === groupValue2);
+    });
   }
 };
 
