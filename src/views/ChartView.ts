@@ -5,6 +5,7 @@ import { EventBus, EVENT_TYPES } from '../services/EventBus';
 export const CHART_VIEW_TYPE = 'finance-chart-view';
 
 export class ChartView extends ItemView {
+    static icon = 'dollar-sign';
     private chartService: ChartService;
     private chartContainer: HTMLElement;
     private currentQuery: string;

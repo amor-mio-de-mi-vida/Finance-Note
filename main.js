@@ -16601,9 +16601,15 @@ var import_obsidian = require("obsidian");
 var TransactionService = class {
   constructor(app, settings) {
     this.transactions = [];
+    this.initialized = false;
     this.app = app;
     this.settings = settings;
-    this.loadTransactions();
+  }
+  async initialize() {
+    if (!this.initialized) {
+      await this.loadTransactions();
+      this.initialized = true;
+    }
   }
   async loadTransactions() {
     try {
@@ -16779,6 +16785,9 @@ var TransactionService = class {
     await this.deleteTransactionFromContent(id, transaction.date);
   }
   async getTransactions(query) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
     let filtered = [...this.transactions];
     if (query) {
       if (query.startDate) {
@@ -16834,9 +16843,15 @@ var import_obsidian2 = require("obsidian");
 var BudgetService = class {
   constructor(app, settings) {
     this.budgets = [];
+    this.initialized = false;
     this.app = app;
     this.settings = settings;
-    this.loadBudgets();
+  }
+  async initialize() {
+    if (!this.initialized) {
+      await this.loadBudgets();
+      this.initialized = true;
+    }
   }
   async loadBudgets() {
     try {
@@ -16999,6 +17014,9 @@ var BudgetService = class {
     await this.deleteBudgetFromContent(id);
   }
   async getBudgets(query) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
     const year = (query == null ? void 0 : query.year) || (/* @__PURE__ */ new Date()).getFullYear();
     const file = await this.getOrCreateFinanceFile(year);
     const content = await this.app.vault.read(file);
@@ -17106,10 +17124,16 @@ var EVENT_TYPES2 = {
 var RecurringTransactionService = class {
   constructor(app, settings) {
     this.recurringTransactions = [];
+    this.initialized = false;
     this.app = app;
     this.settings = settings;
     this.eventBus = EventBus.getInstance();
-    this.loadRecurringTransactions();
+  }
+  async initialize() {
+    if (!this.initialized) {
+      await this.loadRecurringTransactions();
+      this.initialized = true;
+    }
   }
   async loadRecurringTransactions() {
     try {
@@ -17296,6 +17320,9 @@ var RecurringTransactionService = class {
     this.eventBus.emit(EVENT_TYPES2.RECURRING_TRANSACTION_CHANGED);
   }
   async getRecurringTransactions(query) {
+    if (!this.initialized) {
+      await this.initialize();
+    }
     const year = (query == null ? void 0 : query.year) || (/* @__PURE__ */ new Date()).getFullYear();
     const file = await this.getOrCreateFinanceFile(year);
     const content = await this.app.vault.read(file);
@@ -40143,6 +40170,7 @@ var FinanceTableView = class extends import_obsidian10.ItemView {
     }
   }
 };
+FinanceTableView.icon = "dollar-sign";
 
 // src/views/ChartView.ts
 var import_obsidian11 = require("obsidian");
@@ -40223,6 +40251,7 @@ var ChartView = class extends import_obsidian11.ItemView {
     }
   }
 };
+ChartView.icon = "dollar-sign";
 
 // src/main.ts
 var DEFAULT_SETTINGS = {
@@ -40247,6 +40276,11 @@ var FinancePlugin = class extends import_obsidian12.Plugin {
       this.budgetService,
       this.recurringTransactionService
     );
+    await Promise.all([
+      this.transactionService.initialize(),
+      this.budgetService.initialize(),
+      this.recurringTransactionService.initialize()
+    ]);
     this.registerView(
       FINANCE_TABLE_VIEW,
       (leaf) => new FinanceTableView(
@@ -40310,7 +40344,7 @@ var FinancePlugin = class extends import_obsidian12.Plugin {
       const chart = await this.chartService.generateChart(source);
       el.appendChild(chart);
     });
-    this.addRibbonIcon("dollar-sign", "Finance", () => {
+    this.app.workspace.onLayoutReady(() => {
       this.activateView();
     });
   }

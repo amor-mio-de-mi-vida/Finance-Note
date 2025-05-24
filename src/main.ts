@@ -37,6 +37,7 @@ export default class FinancePlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
+		// 创建服务实例
 		this.transactionService = new TransactionService(this.app, this.settings);
 		this.budgetService = new BudgetService(this.app, this.settings);
 		this.recurringTransactionService = new RecurringTransactionService(this.app, this.settings);
@@ -48,6 +49,13 @@ export default class FinancePlugin extends Plugin {
 			this.budgetService,
 			this.recurringTransactionService
 		);
+
+		// 初始化服务
+		await Promise.all([
+			this.transactionService.initialize(),
+			this.budgetService.initialize(),
+			this.recurringTransactionService.initialize()
+		]);
 
 		// 注册视图
 		this.registerView(
@@ -129,8 +137,8 @@ export default class FinancePlugin extends Plugin {
 			el.appendChild(chart);
 		});
 
-		// 添加侧边栏图标
-		this.addRibbonIcon('dollar-sign', 'Finance', () => {
+		// 在插件加载时自动添加 Finance Table 到右侧边栏
+		this.app.workspace.onLayoutReady(() => {
 			this.activateView();
 		});
 	}

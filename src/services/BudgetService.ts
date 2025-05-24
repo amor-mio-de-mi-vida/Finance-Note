@@ -18,11 +18,18 @@ export class BudgetService {
     private app: App;
     private settings: FinanceSettings;
     private budgets: Budget[] = [];
+    private initialized: boolean = false;
 
     constructor(app: App, settings: FinanceSettings) {
         this.app = app;
         this.settings = settings;
-        this.loadBudgets();
+    }
+
+    async initialize(): Promise<void> {
+        if (!this.initialized) {
+            await this.loadBudgets();
+            this.initialized = true;
+        }
     }
 
     private async loadBudgets() {
@@ -207,6 +214,9 @@ export class BudgetService {
     }
 
     async getBudgets(query?: BudgetQuery): Promise<Budget[]> {
+        if (!this.initialized) {
+            await this.initialize();
+        }
         const year = query?.year || new Date().getFullYear();
         const file = await this.getOrCreateFinanceFile(year);
         const content = await this.app.vault.read(file);

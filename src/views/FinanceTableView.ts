@@ -17,6 +17,7 @@ import { EventBus, EVENT_TYPES } from '../services/EventBus';
 export const FINANCE_TABLE_VIEW = 'finance-table-view';
 
 export class FinanceTableView extends ItemView {
+    static icon = 'dollar-sign';
     private transactionService: TransactionService;
     private budgetService: BudgetService;
     private recurringTransactionService: RecurringTransactionService;

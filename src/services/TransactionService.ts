@@ -22,11 +22,18 @@ export class TransactionService {
     private app: App;
     private settings: FinanceSettings;
     private transactions: Transaction[] = [];
+    private initialized: boolean = false;
 
     constructor(app: App, settings: FinanceSettings) {
         this.app = app;
         this.settings = settings;
-        this.loadTransactions();
+    }
+
+    async initialize(): Promise<void> {
+        if (!this.initialized) {
+            await this.loadTransactions();
+            this.initialized = true;
+        }
     }
 
     private async loadTransactions() {
@@ -224,6 +231,9 @@ export class TransactionService {
     }
 
     async getTransactions(query?: TransactionQuery): Promise<Transaction[]> {
+        if (!this.initialized) {
+            await this.initialize();
+        }
         let filtered = [...this.transactions];
 
         if (query) {

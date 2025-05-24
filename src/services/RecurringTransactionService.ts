@@ -13,12 +13,19 @@ export class RecurringTransactionService {
     private settings: FinanceSettings;
     private recurringTransactions: RecurringTransaction[] = [];
     private eventBus: EventBus;
+    private initialized: boolean = false;
 
     constructor(app: App, settings: FinanceSettings) {
         this.app = app;
         this.settings = settings;
         this.eventBus = EventBus.getInstance();
-        this.loadRecurringTransactions();
+    }
+
+    async initialize(): Promise<void> {
+        if (!this.initialized) {
+            await this.loadRecurringTransactions();
+            this.initialized = true;
+        }
     }
 
     private async loadRecurringTransactions() {
@@ -227,6 +234,9 @@ export class RecurringTransactionService {
     }
 
     async getRecurringTransactions(query?: RecurringTransactionQuery): Promise<RecurringTransaction[]> {
+        if (!this.initialized) {
+            await this.initialize();
+        }
         const year = query?.year || new Date().getFullYear();
         const file = await this.getOrCreateFinanceFile(year);
         const content = await this.app.vault.read(file);
