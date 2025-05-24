@@ -1,4 +1,4 @@
-import { App, Modal, Setting } from 'obsidian';
+import { App, Modal, Setting, Notice } from 'obsidian';
 import { TransactionService } from '../services/TransactionService';
 import { Transaction } from '../types/Transaction';
 
@@ -10,11 +10,16 @@ export class AddTransactionModal extends Modal {
     private category: string = '';
     private account: string = '';
     private description: string = '';
-    private currency: string = 'CNY';
+    private currency: string = 'CNY'; // 使用默认值
 
     constructor(app: App, transactionService: TransactionService) {
         super(app);
         this.transactionService = transactionService;
+        // 初始化默认值
+        const categories = this.transactionService.getCategories();
+        const accounts = this.transactionService.getAccounts();
+        this.category = categories[0] || '';
+        this.account = accounts[0] || '';
     }
 
     onOpen() {
@@ -24,20 +29,27 @@ export class AddTransactionModal extends Modal {
 
         contentEl.createEl('h2', { text: 'Add Transaction' });
 
+        // 日期
         new Setting(contentEl)
             .setName('Date')
-            .addText(text => text
-                .setValue(this.date)
-                .onChange(value => this.date = value)
-                .inputEl.setAttribute('type', 'date'));
+            .addText(text => {
+                text.setValue(this.date)
+                    .onChange(value => this.date = value);
+                text.inputEl.setAttribute('type', 'date');
+            });
 
+        // 金额
         new Setting(contentEl)
             .setName('Amount')
-            .addText(text => text
-                .setValue(this.amount.toString())
-                .onChange(value => this.amount = parseFloat(value) || 0)
-                .inputEl.setAttribute('type', 'number'));
+            .addText(text => {
+                text.setValue(this.amount.toString())
+                    .onChange(value => this.amount = parseFloat(value) || 0);
+                text.inputEl.setAttribute('type', 'number');
+                text.inputEl.setAttribute('step', '0.01');
+                text.inputEl.setAttribute('required', 'true');
+            });
 
+        // 类型
         new Setting(contentEl)
             .setName('Type')
             .addDropdown(dropdown => dropdown
@@ -46,34 +58,56 @@ export class AddTransactionModal extends Modal {
                 .setValue(this.type)
                 .onChange(value => this.type = value as 'income' | 'expense'));
 
+        // 分类
         new Setting(contentEl)
             .setName('Category')
-            .addText(text => text
-                .setValue(this.category)
-                .onChange(value => this.category = value));
+            .addDropdown(dropdown => {
+                const categories = this.transactionService.getCategories();
+                categories.forEach(category => {
+                    dropdown.addOption(category, category);
+                });
+                dropdown.setValue(this.category);
+                dropdown.onChange(value => this.category = value);
+            });
 
+        // 账户
         new Setting(contentEl)
             .setName('Account')
-            .addText(text => text
-                .setValue(this.account)
-                .onChange(value => this.account = value));
+            .addDropdown(dropdown => {
+                const accounts = this.transactionService.getAccounts();
+                accounts.forEach(account => {
+                    dropdown.addOption(account, account);
+                });
+                dropdown.setValue(this.account);
+                dropdown.onChange(value => this.account = value);
+            });
 
+        // 描述
         new Setting(contentEl)
             .setName('Description')
-            .addTextArea(text => text
+            .addText(text => text
                 .setValue(this.description)
                 .onChange(value => this.description = value));
 
+        // 货币
         new Setting(contentEl)
             .setName('Currency')
-            .addText(text => text
-                .setValue(this.currency)
-                .onChange(value => this.currency = value));
+            .addText(text => {
+                text.setValue(this.currency)
+                    .onChange(value => this.currency = value);
+                text.inputEl.setAttribute('required', 'true');
+            });
 
+        // 提交按钮
         new Setting(contentEl)
             .addButton(button => button
                 .setButtonText('Add')
+                .setCta()
                 .onClick(async () => {
+                    if (!this.amount || !this.category || !this.account || !this.currency) {
+                        new Notice('Please fill in all required fields');
+                        return;
+                    }
                     try {
                         const transaction: Omit<Transaction, 'id'> = {
                             date: new Date(this.date),
@@ -81,13 +115,14 @@ export class AddTransactionModal extends Modal {
                             type: this.type,
                             category: this.category,
                             account: this.account,
-                            description: this.description,
+                            description: this.description || undefined,
                             currency: this.currency
                         };
                         await this.transactionService.addTransaction(transaction);
+                        new Notice('Transaction added successfully');
                         this.close();
                     } catch (error) {
-                        console.error('Failed to add transaction:', error);
+                        new Notice('Failed to add transaction: ' + error.message);
                     }
                 }));
     }

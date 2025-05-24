@@ -39766,6 +39766,7 @@ var EditRecurringTransactionModal = class extends import_obsidian6.Modal {
 // src/modals/AddTransactionModal.ts
 var import_obsidian7 = require("obsidian");
 var AddTransactionModal = class extends import_obsidian7.Modal {
+  // 使用默认值
   constructor(app, transactionService) {
     super(app);
     this.date = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
@@ -39776,20 +39777,53 @@ var AddTransactionModal = class extends import_obsidian7.Modal {
     this.description = "";
     this.currency = "CNY";
     this.transactionService = transactionService;
+    const categories = this.transactionService.getCategories();
+    const accounts = this.transactionService.getAccounts();
+    this.category = categories[0] || "";
+    this.account = accounts[0] || "";
   }
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass("finance-modal");
     contentEl.createEl("h2", { text: "Add Transaction" });
-    new import_obsidian7.Setting(contentEl).setName("Date").addText((text) => text.setValue(this.date).onChange((value) => this.date = value).inputEl.setAttribute("type", "date"));
-    new import_obsidian7.Setting(contentEl).setName("Amount").addText((text) => text.setValue(this.amount.toString()).onChange((value) => this.amount = parseFloat(value) || 0).inputEl.setAttribute("type", "number"));
+    new import_obsidian7.Setting(contentEl).setName("Date").addText((text) => {
+      text.setValue(this.date).onChange((value) => this.date = value);
+      text.inputEl.setAttribute("type", "date");
+    });
+    new import_obsidian7.Setting(contentEl).setName("Amount").addText((text) => {
+      text.setValue(this.amount.toString()).onChange((value) => this.amount = parseFloat(value) || 0);
+      text.inputEl.setAttribute("type", "number");
+      text.inputEl.setAttribute("step", "0.01");
+      text.inputEl.setAttribute("required", "true");
+    });
     new import_obsidian7.Setting(contentEl).setName("Type").addDropdown((dropdown) => dropdown.addOption("income", "Income").addOption("expense", "Expense").setValue(this.type).onChange((value) => this.type = value));
-    new import_obsidian7.Setting(contentEl).setName("Category").addText((text) => text.setValue(this.category).onChange((value) => this.category = value));
-    new import_obsidian7.Setting(contentEl).setName("Account").addText((text) => text.setValue(this.account).onChange((value) => this.account = value));
-    new import_obsidian7.Setting(contentEl).setName("Description").addTextArea((text) => text.setValue(this.description).onChange((value) => this.description = value));
-    new import_obsidian7.Setting(contentEl).setName("Currency").addText((text) => text.setValue(this.currency).onChange((value) => this.currency = value));
-    new import_obsidian7.Setting(contentEl).addButton((button) => button.setButtonText("Add").onClick(async () => {
+    new import_obsidian7.Setting(contentEl).setName("Category").addDropdown((dropdown) => {
+      const categories = this.transactionService.getCategories();
+      categories.forEach((category) => {
+        dropdown.addOption(category, category);
+      });
+      dropdown.setValue(this.category);
+      dropdown.onChange((value) => this.category = value);
+    });
+    new import_obsidian7.Setting(contentEl).setName("Account").addDropdown((dropdown) => {
+      const accounts = this.transactionService.getAccounts();
+      accounts.forEach((account) => {
+        dropdown.addOption(account, account);
+      });
+      dropdown.setValue(this.account);
+      dropdown.onChange((value) => this.account = value);
+    });
+    new import_obsidian7.Setting(contentEl).setName("Description").addText((text) => text.setValue(this.description).onChange((value) => this.description = value));
+    new import_obsidian7.Setting(contentEl).setName("Currency").addText((text) => {
+      text.setValue(this.currency).onChange((value) => this.currency = value);
+      text.inputEl.setAttribute("required", "true");
+    });
+    new import_obsidian7.Setting(contentEl).addButton((button) => button.setButtonText("Add").setCta().onClick(async () => {
+      if (!this.amount || !this.category || !this.account || !this.currency) {
+        new import_obsidian7.Notice("Please fill in all required fields");
+        return;
+      }
       try {
         const transaction = {
           date: new Date(this.date),
@@ -39797,13 +39831,14 @@ var AddTransactionModal = class extends import_obsidian7.Modal {
           type: this.type,
           category: this.category,
           account: this.account,
-          description: this.description,
+          description: this.description || void 0,
           currency: this.currency
         };
         await this.transactionService.addTransaction(transaction);
+        new import_obsidian7.Notice("Transaction added successfully");
         this.close();
       } catch (error) {
-        console.error("Failed to add transaction:", error);
+        new import_obsidian7.Notice("Failed to add transaction: " + error.message);
       }
     }));
   }
