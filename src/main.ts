@@ -96,7 +96,7 @@ export default class FinancePlugin extends Plugin {
 			id: 'finance:add-recurring-transaction',
 			name: 'Add Recurring Transaction',
 			callback: () => {
-				new AddRecurringTransactionModal(this.app, this.recurringTransactionService).open();
+				new AddRecurringTransactionModal(this.app, this.recurringTransactionService, this.transactionService).open();
 			}
 		});
 
@@ -196,7 +196,7 @@ class FinanceSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', {text: 'Finance Plugin Settings'});
+		containerEl.createEl('h2', {text: 'Finance Note Settings'});
 
 		new Setting(containerEl)
 			.setName('Currency')
@@ -232,34 +232,14 @@ class FinanceSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Finance File Path')
-			.setDesc('Default path for finance files')
+			.setName('Finance Note File Path')
+			.setDesc('Default path for finance note files')
 			.addText(text => text
-				.setPlaceholder('Enter finance file path')
+				.setPlaceholder('Enter finance note file path')
 				.setValue(this.plugin.settings.financeFilePath)
 				.onChange(async (value) => {
 					this.plugin.settings.financeFilePath = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Budget File Path')
-			.setDesc('Default path for budget files')
-			.addText(text => text
-				.setPlaceholder('Enter budget file path')
-				.setValue(this.plugin.settings.budgetFilePath)
-				.onChange(async (value) => {
 					this.plugin.settings.budgetFilePath = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Recurring Transactions File Path')
-			.setDesc('Default path for recurring transactions files')
-			.addText(text => text
-				.setPlaceholder('Enter recurring transactions file path')
-				.setValue(this.plugin.settings.recurringTransactionsFilePath)
-				.onChange(async (value) => {
 					this.plugin.settings.recurringTransactionsFilePath = value;
 					await this.plugin.saveSettings();
 				}));
@@ -271,8 +251,8 @@ class AddTransactionModal extends Modal {
 	private transactionService: TransactionService;
 	private amountInput: HTMLInputElement;
 	private typeSelect: HTMLSelectElement;
-	private categoryInput: HTMLInputElement;
-	private accountInput: HTMLInputElement;
+	private categorySelect: HTMLSelectElement;
+	private accountSelect: HTMLSelectElement;
 	private descriptionInput: HTMLInputElement;
 	private dateInput: HTMLInputElement;
 	private currencyInput: HTMLInputElement;
@@ -322,21 +302,19 @@ class AddTransactionModal extends Modal {
 		// 分类
 		const categoryGroup = form.createEl('div', {cls: 'form-group'});
 		categoryGroup.createEl('label', {text: 'Category'});
-		this.categoryInput = categoryGroup.createEl('input', {
-			attr: {
-				type: 'text',
-				required: 'true'
-			}
+		this.categorySelect = categoryGroup.createEl('select');
+		const categories = this.transactionService.getCategories();
+		categories.forEach(category => {
+			this.categorySelect.createEl('option', {text: category, value: category});
 		});
 
 		// 账户
 		const accountGroup = form.createEl('div', {cls: 'form-group'});
 		accountGroup.createEl('label', {text: 'Account'});
-		this.accountInput = accountGroup.createEl('input', {
-			attr: {
-				type: 'text',
-				required: 'true'
-			}
+		this.accountSelect = accountGroup.createEl('select');
+		const accounts = this.transactionService.getAccounts();
+		accounts.forEach(account => {
+			this.accountSelect.createEl('option', {text: account, value: account});
 		});
 
 		// 描述
@@ -368,8 +346,8 @@ class AddTransactionModal extends Modal {
 					date: new Date(this.dateInput.value),
 					amount: parseFloat(this.amountInput.value),
 					type: this.typeSelect.value as 'income' | 'expense',
-					category: this.categoryInput.value,
-					account: this.accountInput.value,
+					category: this.categorySelect.value,
+					account: this.accountSelect.value,
 					description: this.descriptionInput.value,
 					currency: this.currencyInput.value
 				};
@@ -400,7 +378,7 @@ class AddRecurringTransactionModal extends Modal {
 	private startDateInput: HTMLInputElement;
 	private endDateInput: HTMLInputElement;
 
-	constructor(app: App, recurringTransactionService: RecurringTransactionService) {
+	constructor(app: App, recurringTransactionService: RecurringTransactionService, transactionService: TransactionService) {
 		super(app);
 		this.recurringTransactionService = recurringTransactionService;
 	}

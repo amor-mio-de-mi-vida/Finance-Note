@@ -2,6 +2,8 @@ import { App, TFile } from 'obsidian';
 import { format, parse, getYear } from 'date-fns';
 import { FinanceSettings } from '../settings';
 import { Transaction } from '../types/Transaction';
+import { EventBus, EVENT_TYPES } from './EventBus';
+import * as crypto from 'crypto';
 
 interface TransactionQuery {
     startDate?: Date;
@@ -23,10 +25,12 @@ export class TransactionService {
     private settings: FinanceSettings;
     private transactions: Transaction[] = [];
     private initialized: boolean = false;
+    private eventBus: EventBus;
 
     constructor(app: App, settings: FinanceSettings) {
         this.app = app;
         this.settings = settings;
+        this.eventBus = EventBus.getInstance();
     }
 
     async initialize(): Promise<void> {
@@ -205,8 +209,10 @@ export class TransactionService {
             ...transaction,
             id: crypto.randomUUID()
         };
-        this.transactions.push(newTransaction);
         await this.addTransactionToContent(newTransaction);
+        // 重新加载交易数据以确保数据同步
+        await this.loadTransactions();
+        this.eventBus.emit(EVENT_TYPES.TRANSACTION_CHANGED);
         return newTransaction;
     }
 
@@ -215,8 +221,10 @@ export class TransactionService {
         if (index === -1) {
             throw new Error('Transaction not found');
         }
-        this.transactions[index] = transaction;
         await this.updateTransactionInContent(transaction);
+        // 重新加载交易数据以确保数据同步
+        await this.loadTransactions();
+        this.eventBus.emit(EVENT_TYPES.TRANSACTION_CHANGED);
         return transaction;
     }
 
@@ -226,8 +234,10 @@ export class TransactionService {
             throw new Error('Transaction not found');
         }
         const transaction = this.transactions[index];
-        this.transactions.splice(index, 1);
         await this.deleteTransactionFromContent(id, transaction.date);
+        // 重新加载交易数据以确保数据同步
+        await this.loadTransactions();
+        this.eventBus.emit(EVENT_TYPES.TRANSACTION_CHANGED);
     }
 
     async getTransactions(query?: TransactionQuery): Promise<Transaction[]> {
@@ -290,5 +300,25 @@ export class TransactionService {
             console.error(`Failed to load transactions for year ${year}:`, error);
             this.transactions = [];
         }
+    }
+
+    // 获取所有账户列表
+    getAccounts(): string[] {
+        // 从交易记录中获取所有使用过的账户
+        const accounts = new Set<string>();
+        this.transactions.forEach(t => accounts.add(t.account));
+        // 添加默认账户
+        accounts.add(this.settings.defaultAccount);
+        return Array.from(accounts).sort();
+    }
+
+    // 获取所有分类列表
+    getCategories(): string[] {
+        // 从交易记录中获取所有使用过的分类
+        const categories = new Set<string>();
+        this.transactions.forEach(t => categories.add(t.category));
+        // 添加默认分类
+        this.settings.defaultCategories.forEach(c => categories.add(c));
+        return Array.from(categories).sort();
     }
 } 

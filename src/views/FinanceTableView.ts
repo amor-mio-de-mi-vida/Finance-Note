@@ -28,6 +28,11 @@ export class FinanceTableView extends ItemView {
     private currentPage: number = 1;
     private itemsPerPage: number = 10;
 
+    // 存储回调函数以便正确取消订阅
+    private transactionChangedCallback: () => void;
+    private budgetChangedCallback: () => void;
+    private recurringTransactionChangedCallback: () => void;
+
     constructor(
         leaf: WorkspaceLeaf,
         transactionService: TransactionService,
@@ -41,27 +46,31 @@ export class FinanceTableView extends ItemView {
         this.recurringTransactionService = recurringTransactionService;
         this.excelService = excelService;
         this.eventBus = EventBus.getInstance();
+
+        // 初始化回调函数
+        this.transactionChangedCallback = () => {
+            if (this.currentType === 'transaction') {
+                this.render();
+            }
+        };
+        this.budgetChangedCallback = () => {
+            if (this.currentType === 'budget') {
+                this.render();
+            }
+        };
+        this.recurringTransactionChangedCallback = () => {
+            if (this.currentType === 'recurring') {
+                this.render();
+            }
+        };
+
         this.setupEventListeners();
     }
 
     private setupEventListeners(): void {
-        this.eventBus.subscribe(EVENT_TYPES.TRANSACTION_CHANGED, () => {
-            if (this.currentType === 'transaction') {
-                this.render();
-            }
-        });
-
-        this.eventBus.subscribe(EVENT_TYPES.BUDGET_CHANGED, () => {
-            if (this.currentType === 'budget') {
-                this.render();
-            }
-        });
-
-        this.eventBus.subscribe(EVENT_TYPES.RECURRING_TRANSACTION_CHANGED, () => {
-            if (this.currentType === 'recurring') {
-                this.render();
-            }
-        });
+        this.eventBus.subscribe(EVENT_TYPES.TRANSACTION_CHANGED, this.transactionChangedCallback);
+        this.eventBus.subscribe(EVENT_TYPES.BUDGET_CHANGED, this.budgetChangedCallback);
+        this.eventBus.subscribe(EVENT_TYPES.RECURRING_TRANSACTION_CHANGED, this.recurringTransactionChangedCallback);
     }
 
     getViewType(): string {
@@ -77,10 +86,10 @@ export class FinanceTableView extends ItemView {
     }
 
     async onClose(): Promise<void> {
-        // 取消订阅事件
-        this.eventBus.unsubscribe(EVENT_TYPES.TRANSACTION_CHANGED, () => this.render());
-        this.eventBus.unsubscribe(EVENT_TYPES.BUDGET_CHANGED, () => this.render());
-        this.eventBus.unsubscribe(EVENT_TYPES.RECURRING_TRANSACTION_CHANGED, () => this.render());
+        // 使用存储的回调函数取消订阅
+        this.eventBus.unsubscribe(EVENT_TYPES.TRANSACTION_CHANGED, this.transactionChangedCallback);
+        this.eventBus.unsubscribe(EVENT_TYPES.BUDGET_CHANGED, this.budgetChangedCallback);
+        this.eventBus.unsubscribe(EVENT_TYPES.RECURRING_TRANSACTION_CHANGED, this.recurringTransactionChangedCallback);
     }
 
     private render(): void {
@@ -138,7 +147,23 @@ export class FinanceTableView extends ItemView {
             text: 'Add',
             cls: 'finance-add-button'
         });
-        addButton.addEventListener('click', () => this.showAddModal());
+        addButton.addEventListener('click', () => {
+            switch (this.currentType) {
+                case 'transaction':
+                    new AddTransactionModal(this.app, this.transactionService).open();
+                    break;
+                case 'budget':
+                    new AddBudgetModal(this.app, this.budgetService, this.transactionService).open();
+                    break;
+                case 'recurring':
+                    new AddRecurringTransactionModal(
+                        this.app,
+                        this.recurringTransactionService,
+                        this.transactionService
+                    ).open();
+                    break;
+            }
+        });
 
         // 导入按钮
         const importButton = toolbar.createEl('button', {
@@ -217,8 +242,11 @@ export class FinanceTableView extends ItemView {
 
             deleteButton.addEventListener('click', async () => {
                 if (confirm('Are you sure you want to delete this transaction?')) {
-                    await this.transactionService.deleteTransaction(transaction.id);
-                    this.render();
+                    try {
+                        await this.transactionService.deleteTransaction(transaction.id);
+                    } catch (error) {
+                        console.error('Failed to delete transaction:', error);
+                    }
                 }
             });
         });
@@ -312,7 +340,12 @@ export class FinanceTableView extends ItemView {
                 cls: 'finance-edit-button'
             });
             editButton.addEventListener('click', () => {
-                new EditRecurringTransactionModal(this.app, this.recurringTransactionService, recurringTransaction).open();
+                new EditRecurringTransactionModal(
+                    this.app,
+                    this.recurringTransactionService,
+                    this.transactionService,
+                    recurringTransaction
+                ).open();
             });
 
             const deleteButton = actionsCell.createEl('button', {
@@ -323,7 +356,6 @@ export class FinanceTableView extends ItemView {
                 if (confirm('Are you sure you want to delete this recurring transaction?')) {
                     try {
                         await this.recurringTransactionService.deleteRecurringTransaction(recurringTransaction.id);
-                        this.render();
                     } catch (error) {
                         console.error('Failed to delete recurring transaction:', error);
                     }
@@ -369,19 +401,5 @@ export class FinanceTableView extends ItemView {
                 this.render();
             }
         });
-    }
-
-    private showAddModal(): void {
-        switch (this.currentType) {
-            case 'transaction':
-                new AddTransactionModal(this.app, this.transactionService).open();
-                break;
-            case 'budget':
-                new AddBudgetModal(this.app, this.budgetService).open();
-                break;
-            case 'recurring':
-                new AddRecurringTransactionModal(this.app, this.recurringTransactionService).open();
-                break;
-        }
     }
 } 
