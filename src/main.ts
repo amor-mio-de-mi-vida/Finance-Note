@@ -5,6 +5,7 @@ import { BudgetService } from './services/BudgetService';
 import { RecurringTransactionService } from './services/RecurringTransactionService';
 import { ExcelService } from './services/ExcelService';
 import { FinanceTableView, FINANCE_TABLE_VIEW } from './views/FinanceTableView';
+import { ChartView, CHART_VIEW_TYPE } from './views/ChartView';
 
 interface FinancePluginSettings {
 	defaultCurrency: string;
@@ -31,6 +32,7 @@ export default class FinancePlugin extends Plugin {
 	recurringTransactionService: RecurringTransactionService;
 	chartService: ChartService;
 	excelService: ExcelService;
+	private chartView: ChartView;
 
 	async onload() {
 		await this.loadSettings();
@@ -38,7 +40,7 @@ export default class FinancePlugin extends Plugin {
 		this.transactionService = new TransactionService(this.app, this.settings);
 		this.budgetService = new BudgetService(this.app, this.settings);
 		this.recurringTransactionService = new RecurringTransactionService(this.app, this.settings);
-		this.chartService = new ChartService(this.transactionService);
+		this.chartService = new ChartService(this.app, this.transactionService);
 		this.excelService = new ExcelService(
 			this.app,
 			this.settings,
@@ -57,6 +59,12 @@ export default class FinancePlugin extends Plugin {
 				this.recurringTransactionService,
 				this.excelService
 			)
+		);
+
+		// 注册图表视图
+		this.registerView(
+			CHART_VIEW_TYPE,
+			(leaf) => (this.chartView = new ChartView(leaf, this.chartService))
 		);
 
 		// 添加命令
@@ -92,12 +100,32 @@ export default class FinancePlugin extends Plugin {
 			}
 		});
 
+		// 添加图表命令
+		this.addCommand({
+			id: 'show-finance-chart',
+			name: 'Show Finance Chart',
+			callback: () => {
+				this.activateView();
+			},
+		});
+
+		// 添加图表导出命令
+		this.addCommand({
+			id: 'export-finance-chart',
+			name: 'Export Finance Chart',
+			callback: async () => {
+				if (this.chartView) {
+					await this.chartView.exportChart('png');
+				}
+			},
+		});
+
 		// 添加设置标签页
 		this.addSettingTab(new FinanceSettingTab(this.app, this));
 
 		// 注册图表代码块
 		this.registerMarkdownCodeBlockProcessor('finance', async (source, el, ctx) => {
-			const chart = await this.chartService.generateChartFromSource(source);
+			const chart = await this.chartService.generateChart(source);
 			el.appendChild(chart);
 		});
 
@@ -137,6 +165,13 @@ export default class FinancePlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	// 添加图表渲染方法
+	async renderChart(query: string) {
+		if (this.chartView) {
+			await this.chartView.renderChart(query);
+		}
 	}
 }
 
