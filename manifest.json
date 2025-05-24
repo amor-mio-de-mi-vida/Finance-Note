@@ -1,0 +1,11 @@
+{
+  "id": "obsidian-finance-note",
+  "name": "Finance Note",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "A finance tracking plugin for Obsidian",
+  "author": "amor-mio-de-mi-vida",
+  "authorUrl": "https://github.com/amor-mio-de-mi-vida",
+  "isDesktopOnly": false,
+  "styles": ["styles.css"]
+} 
