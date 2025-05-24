@@ -444,7 +444,7 @@ export class ChartService {
                             padding: {
                                 top: 10,
                                 bottom: 20
-                            }
+                        }
                     }
                 },
                 scales: {

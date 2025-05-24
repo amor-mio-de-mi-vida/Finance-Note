@@ -65,7 +65,7 @@ export class ExcelService {
                 amount: '金额',
                 type: '类型',
                 category: '分类',
-                account: '账户',
+                account: '默认',
                 description: '描述',
                 currency: '货币'
             },
@@ -78,7 +78,7 @@ export class ExcelService {
                 amount: '100.00',
                 type: '支出',
                 category: '餐饮',
-                account: '现金账户',
+                account: '默认',
                 description: '午餐',
                 currency: this.settings.defaultCurrency
             }

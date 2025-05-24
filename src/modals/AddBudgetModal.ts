@@ -120,7 +120,7 @@ export class AddBudgetModal extends Modal {
 
         submitButton.addEventListener('click', async (e) => {
             e.preventDefault();
-            try {
+                    try {
                 const period = this.periodSelect.value as 'month' | 'quarter' | 'year';
                 const year = parseInt(this.yearInput.value);
                 const month = period === 'month' ? parseInt(this.monthInput.value) : undefined;
@@ -134,10 +134,10 @@ export class AddBudgetModal extends Modal {
                     currency: this.currencySelect.value
                 });
                 new Notice('Budget added successfully');
-                this.close();
-            } catch (error) {
+                        this.close();
+                    } catch (error) {
                 new Notice('Failed to add budget: ' + error.message);
-            }
+                    }
         });
     }
 

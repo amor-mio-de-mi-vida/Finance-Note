@@ -42,7 +42,7 @@ __export(main_exports, {
   default: () => FinancePlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian13 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 
 // node_modules/@kurkle/color/dist/color.esm.js
 function round(v) {
@@ -14436,6 +14436,8 @@ var maxTime = Math.pow(10, 8) * 24 * 60 * 60 * 1e3;
 var minTime = -maxTime;
 var millisecondsInWeek = 6048e5;
 var millisecondsInDay = 864e5;
+var millisecondsInMinute = 6e4;
+var millisecondsInHour = 36e5;
 var secondsInHour = 3600;
 var secondsInDay = secondsInHour * 24;
 var secondsInWeek = secondsInDay * 7;
@@ -14545,12 +14547,78 @@ function isValid(date) {
   return !isNaN(Number(_date));
 }
 
+// node_modules/date-fns/endOfDay.mjs
+function endOfDay(date) {
+  const _date = toDate(date);
+  _date.setHours(23, 59, 59, 999);
+  return _date;
+}
+
+// node_modules/date-fns/endOfMonth.mjs
+function endOfMonth(date) {
+  const _date = toDate(date);
+  const month = _date.getMonth();
+  _date.setFullYear(_date.getFullYear(), month + 1, 0);
+  _date.setHours(23, 59, 59, 999);
+  return _date;
+}
+
+// node_modules/date-fns/startOfQuarter.mjs
+function startOfQuarter(date) {
+  const _date = toDate(date);
+  const currentMonth = _date.getMonth();
+  const month = currentMonth - currentMonth % 3;
+  _date.setMonth(month, 1);
+  _date.setHours(0, 0, 0, 0);
+  return _date;
+}
+
+// node_modules/date-fns/startOfMonth.mjs
+function startOfMonth(date) {
+  const _date = toDate(date);
+  _date.setDate(1);
+  _date.setHours(0, 0, 0, 0);
+  return _date;
+}
+
+// node_modules/date-fns/endOfYear.mjs
+function endOfYear(date) {
+  const _date = toDate(date);
+  const year = _date.getFullYear();
+  _date.setFullYear(year + 1, 0, 0);
+  _date.setHours(23, 59, 59, 999);
+  return _date;
+}
+
 // node_modules/date-fns/startOfYear.mjs
 function startOfYear(date) {
   const cleanDate = toDate(date);
   const _date = constructFrom(date, 0);
   _date.setFullYear(cleanDate.getFullYear(), 0, 1);
   _date.setHours(0, 0, 0, 0);
+  return _date;
+}
+
+// node_modules/date-fns/endOfWeek.mjs
+function endOfWeek(date, options) {
+  var _a, _b, _c, _d, _e, _f, _g, _h;
+  const defaultOptions2 = getDefaultOptions();
+  const weekStartsOn = (_h = (_g = (_d = (_c = options == null ? void 0 : options.weekStartsOn) != null ? _c : (_b = (_a = options == null ? void 0 : options.locale) == null ? void 0 : _a.options) == null ? void 0 : _b.weekStartsOn) != null ? _d : defaultOptions2.weekStartsOn) != null ? _g : (_f = (_e = defaultOptions2.locale) == null ? void 0 : _e.options) == null ? void 0 : _f.weekStartsOn) != null ? _h : 0;
+  const _date = toDate(date);
+  const day = _date.getDay();
+  const diff = (day < weekStartsOn ? -7 : 0) + 6 - (day - weekStartsOn);
+  _date.setDate(_date.getDate() + diff);
+  _date.setHours(23, 59, 59, 999);
+  return _date;
+}
+
+// node_modules/date-fns/endOfQuarter.mjs
+function endOfQuarter(date) {
+  const _date = toDate(date);
+  const currentMonth = _date.getMonth();
+  const month = currentMonth - currentMonth % 3 + 3;
+  _date.setMonth(month, 0);
+  _date.setHours(23, 59, 59, 999);
   return _date;
 }
 
@@ -15921,6 +15989,193 @@ function cleanEscapedString(input) {
 // node_modules/date-fns/getYear.mjs
 function getYear(date) {
   return toDate(date).getFullYear();
+}
+
+// node_modules/date-fns/parseISO.mjs
+function parseISO(argument, options) {
+  var _a;
+  const additionalDigits = (_a = options == null ? void 0 : options.additionalDigits) != null ? _a : 2;
+  const dateStrings = splitDateString(argument);
+  let date;
+  if (dateStrings.date) {
+    const parseYearResult = parseYear(dateStrings.date, additionalDigits);
+    date = parseDate(parseYearResult.restDateString, parseYearResult.year);
+  }
+  if (!date || isNaN(date.getTime())) {
+    return /* @__PURE__ */ new Date(NaN);
+  }
+  const timestamp = date.getTime();
+  let time = 0;
+  let offset;
+  if (dateStrings.time) {
+    time = parseTime(dateStrings.time);
+    if (isNaN(time)) {
+      return /* @__PURE__ */ new Date(NaN);
+    }
+  }
+  if (dateStrings.timezone) {
+    offset = parseTimezone(dateStrings.timezone);
+    if (isNaN(offset)) {
+      return /* @__PURE__ */ new Date(NaN);
+    }
+  } else {
+    const dirtyDate = new Date(timestamp + time);
+    const result = /* @__PURE__ */ new Date(0);
+    result.setFullYear(
+      dirtyDate.getUTCFullYear(),
+      dirtyDate.getUTCMonth(),
+      dirtyDate.getUTCDate()
+    );
+    result.setHours(
+      dirtyDate.getUTCHours(),
+      dirtyDate.getUTCMinutes(),
+      dirtyDate.getUTCSeconds(),
+      dirtyDate.getUTCMilliseconds()
+    );
+    return result;
+  }
+  return new Date(timestamp + time + offset);
+}
+var patterns = {
+  dateTimeDelimiter: /[T ]/,
+  timeZoneDelimiter: /[Z ]/i,
+  timezone: /([Z+-].*)$/
+};
+var dateRegex = /^-?(?:(\d{3})|(\d{2})(?:-?(\d{2}))?|W(\d{2})(?:-?(\d{1}))?|)$/;
+var timeRegex = /^(\d{2}(?:[.,]\d*)?)(?::?(\d{2}(?:[.,]\d*)?))?(?::?(\d{2}(?:[.,]\d*)?))?$/;
+var timezoneRegex = /^([+-])(\d{2})(?::?(\d{2}))?$/;
+function splitDateString(dateString) {
+  const dateStrings = {};
+  const array = dateString.split(patterns.dateTimeDelimiter);
+  let timeString;
+  if (array.length > 2) {
+    return dateStrings;
+  }
+  if (/:/.test(array[0])) {
+    timeString = array[0];
+  } else {
+    dateStrings.date = array[0];
+    timeString = array[1];
+    if (patterns.timeZoneDelimiter.test(dateStrings.date)) {
+      dateStrings.date = dateString.split(patterns.timeZoneDelimiter)[0];
+      timeString = dateString.substr(
+        dateStrings.date.length,
+        dateString.length
+      );
+    }
+  }
+  if (timeString) {
+    const token = patterns.timezone.exec(timeString);
+    if (token) {
+      dateStrings.time = timeString.replace(token[1], "");
+      dateStrings.timezone = token[1];
+    } else {
+      dateStrings.time = timeString;
+    }
+  }
+  return dateStrings;
+}
+function parseYear(dateString, additionalDigits) {
+  const regex = new RegExp(
+    "^(?:(\\d{4}|[+-]\\d{" + (4 + additionalDigits) + "})|(\\d{2}|[+-]\\d{" + (2 + additionalDigits) + "})$)"
+  );
+  const captures = dateString.match(regex);
+  if (!captures)
+    return { year: NaN, restDateString: "" };
+  const year = captures[1] ? parseInt(captures[1]) : null;
+  const century = captures[2] ? parseInt(captures[2]) : null;
+  return {
+    year: century === null ? year : century * 100,
+    restDateString: dateString.slice((captures[1] || captures[2]).length)
+  };
+}
+function parseDate(dateString, year) {
+  if (year === null)
+    return /* @__PURE__ */ new Date(NaN);
+  const captures = dateString.match(dateRegex);
+  if (!captures)
+    return /* @__PURE__ */ new Date(NaN);
+  const isWeekDate = !!captures[4];
+  const dayOfYear = parseDateUnit(captures[1]);
+  const month = parseDateUnit(captures[2]) - 1;
+  const day = parseDateUnit(captures[3]);
+  const week = parseDateUnit(captures[4]);
+  const dayOfWeek = parseDateUnit(captures[5]) - 1;
+  if (isWeekDate) {
+    if (!validateWeekDate(year, week, dayOfWeek)) {
+      return /* @__PURE__ */ new Date(NaN);
+    }
+    return dayOfISOWeekYear(year, week, dayOfWeek);
+  } else {
+    const date = /* @__PURE__ */ new Date(0);
+    if (!validateDate(year, month, day) || !validateDayOfYearDate(year, dayOfYear)) {
+      return /* @__PURE__ */ new Date(NaN);
+    }
+    date.setUTCFullYear(year, month, Math.max(dayOfYear, day));
+    return date;
+  }
+}
+function parseDateUnit(value) {
+  return value ? parseInt(value) : 1;
+}
+function parseTime(timeString) {
+  const captures = timeString.match(timeRegex);
+  if (!captures)
+    return NaN;
+  const hours = parseTimeUnit(captures[1]);
+  const minutes = parseTimeUnit(captures[2]);
+  const seconds = parseTimeUnit(captures[3]);
+  if (!validateTime(hours, minutes, seconds)) {
+    return NaN;
+  }
+  return hours * millisecondsInHour + minutes * millisecondsInMinute + seconds * 1e3;
+}
+function parseTimeUnit(value) {
+  return value && parseFloat(value.replace(",", ".")) || 0;
+}
+function parseTimezone(timezoneString) {
+  if (timezoneString === "Z")
+    return 0;
+  const captures = timezoneString.match(timezoneRegex);
+  if (!captures)
+    return 0;
+  const sign2 = captures[1] === "+" ? -1 : 1;
+  const hours = parseInt(captures[2]);
+  const minutes = captures[3] && parseInt(captures[3]) || 0;
+  if (!validateTimezone(hours, minutes)) {
+    return NaN;
+  }
+  return sign2 * (hours * millisecondsInHour + minutes * millisecondsInMinute);
+}
+function dayOfISOWeekYear(isoWeekYear, week, day) {
+  const date = /* @__PURE__ */ new Date(0);
+  date.setUTCFullYear(isoWeekYear, 0, 4);
+  const fourthOfJanuaryDay = date.getUTCDay() || 7;
+  const diff = (week - 1) * 7 + day + 1 - fourthOfJanuaryDay;
+  date.setUTCDate(date.getUTCDate() + diff);
+  return date;
+}
+var daysInMonths = [31, null, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+function isLeapYearIndex(year) {
+  return year % 400 === 0 || year % 4 === 0 && year % 100 !== 0;
+}
+function validateDate(year, month, date) {
+  return month >= 0 && month <= 11 && date >= 1 && date <= (daysInMonths[month] || (isLeapYearIndex(year) ? 29 : 28));
+}
+function validateDayOfYearDate(year, dayOfYear) {
+  return dayOfYear >= 1 && dayOfYear <= (isLeapYearIndex(year) ? 366 : 365);
+}
+function validateWeekDate(_year, week, day) {
+  return week >= 1 && week <= 53 && day >= 0 && day <= 6;
+}
+function validateTime(hours, minutes, seconds) {
+  if (hours === 24) {
+    return minutes === 0 && seconds === 0;
+  }
+  return seconds >= 0 && seconds < 60 && minutes >= 0 && minutes < 60 && hours >= 0 && hours < 25;
+}
+function validateTimezone(_hours, minutes) {
+  return minutes >= 0 && minutes <= 59;
 }
 
 // src/services/ChartService.ts
@@ -21257,7 +21512,7 @@ function numdate(v) {
 var good_pd_date_1 = /* @__PURE__ */ new Date("2017-02-19T19:06:09.000Z");
 var good_pd_date = /* @__PURE__ */ isNaN(/* @__PURE__ */ good_pd_date_1.getFullYear()) ? /* @__PURE__ */ new Date("2/19/17") : good_pd_date_1;
 var good_pd = /* @__PURE__ */ good_pd_date.getFullYear() == 2017;
-function parseDate(str, fixdate) {
+function parseDate2(str, fixdate) {
   var d = new Date(str);
   if (good_pd) {
     if (fixdate > 0)
@@ -25084,7 +25339,7 @@ var SYLK = /* @__PURE__ */ function() {
                     if (next_cell_format !== null && fmt_is_date(next_cell_format))
                       val = numdate(val);
                   } else if (!isNaN(fuzzydate(val).getDate())) {
-                    val = parseDate(val);
+                    val = parseDate2(val);
                   }
                   if (typeof $cptable !== "undefined" && typeof val == "string" && (opts || {}).type != "string" && (opts || {}).codepage)
                     val = $cptable.utils.decode(opts.codepage, val);
@@ -25341,7 +25596,7 @@ var DIF = /* @__PURE__ */ function() {
           else if (!isNaN(fuzzynum(value)))
             arr[R][C] = fuzzynum(value);
           else if (!isNaN(fuzzydate(value).getDate()))
-            arr[R][C] = parseDate(value);
+            arr[R][C] = parseDate2(value);
           else
             arr[R][C] = value;
           ++C;
@@ -25415,7 +25670,7 @@ var DIF = /* @__PURE__ */ function() {
               break;
             case "d":
               if (!cell.w)
-                cell.w = SSF_format(cell.z || table_fmt[14], datenum(parseDate(cell.v)));
+                cell.w = SSF_format(cell.z || table_fmt[14], datenum(parseDate2(cell.v)));
               if (DIF_XL)
                 push_value(o, 0, cell.w, "V");
               else
@@ -25541,7 +25796,7 @@ var ETH = /* @__PURE__ */ function() {
             oo[5] = encode(cell.f || (cell.v ? "TRUE" : "FALSE"));
             break;
           case "d":
-            var t = datenum(parseDate(cell.v));
+            var t = datenum(parseDate2(cell.v));
             oo[2] = "vtc";
             oo[3] = "nd";
             oo[4] = "" + t;
@@ -25578,7 +25833,7 @@ var PRN = /* @__PURE__ */ function() {
     else if (!isNaN(fuzzynum(data)))
       arr[R][C] = fuzzynum(data);
     else if (!isNaN(fuzzydate(data).getDate()))
-      arr[R][C] = parseDate(data);
+      arr[R][C] = parseDate2(data);
     else
       arr[R][C] = data;
   }
@@ -25725,10 +25980,10 @@ var PRN = /* @__PURE__ */ function() {
         }
         if (o.cellDates) {
           cell.t = "d";
-          cell.v = parseDate(s, k);
+          cell.v = parseDate2(s, k);
         } else {
           cell.t = "n";
-          cell.v = datenum(parseDate(s, k));
+          cell.v = datenum(parseDate2(s, k));
         }
         if (o.cellText !== false)
           cell.w = SSF_format(cell.z, cell.v instanceof Date ? datenum(cell.v) : cell.v);
@@ -30765,11 +31020,11 @@ function write_ws_xml_cell(cell, ref, ws, opts) {
         break;
       case "d":
         if (opts && opts.cellDates)
-          vv = parseDate(cell.v, -1).toISOString();
+          vv = parseDate2(cell.v, -1).toISOString();
         else {
           cell = dup(cell);
           cell.t = "n";
-          vv = "" + (cell.v = datenum(parseDate(cell.v)));
+          vv = "" + (cell.v = datenum(parseDate2(cell.v)));
         }
         if (typeof cell.z === "undefined")
           cell.z = table_fmt[14];
@@ -31499,7 +31754,7 @@ function write_ws_bin_cell(ba, cell, R, C, opts, ws, last_seen) {
     case "d":
       cell = dup(cell);
       cell.z = cell.z || table_fmt[14];
-      cell.v = datenum(parseDate(cell.v));
+      cell.v = datenum(parseDate2(cell.v));
       cell.t = "n";
       break;
     case "n":
@@ -36608,7 +36863,7 @@ function write_ws_biff2_cell(ba, cell, R, C) {
     switch (cell.t) {
       case "d":
       case "n":
-        var v = cell.t == "d" ? datenum(parseDate(cell.v)) : cell.v;
+        var v = cell.t == "d" ? datenum(parseDate2(cell.v)) : cell.v;
         if (v == (v | 0) && v >= 0 && v < 65536)
           write_biff_rec(ba, 2, write_BIFF2INT(R, C, v));
         else
@@ -36748,7 +37003,7 @@ function write_ws_biff8_cell(ba, cell, R, C, opts) {
     switch (cell.t) {
       case "d":
       case "n":
-        var v = cell.t == "d" ? datenum(parseDate(cell.v)) : cell.v;
+        var v = cell.t == "d" ? datenum(parseDate2(cell.v)) : cell.v;
         write_biff_rec(ba, 515, write_Number(R, C, v, os, opts));
         break;
       case "b":
@@ -37127,7 +37382,7 @@ function sheet_add_dom(ws, table, _opts) {
         else if (!isNaN(fuzzynum(v)))
           o = { t: "n", v: fuzzynum(v) };
         else if (!isNaN(fuzzydate(v).getDate())) {
-          o = { t: "d", v: parseDate(v) };
+          o = { t: "d", v: parseDate2(v) };
           if (!opts.cellDates)
             o = { t: "n", v: datenum(o.v) };
           o.z = opts.dateNF || table_fmt[14];
@@ -37300,9 +37555,9 @@ var write_content_ods = /* @__PURE__ */ function() {
             ct["office:value-type"] = "string";
             break;
           case "d":
-            textp = cell.w || parseDate(cell.v).toISOString();
+            textp = cell.w || parseDate2(cell.v).toISOString();
             ct["office:value-type"] = "date";
-            ct["office:date-value"] = parseDate(cell.v).toISOString();
+            ct["office:date-value"] = parseDate2(cell.v).toISOString();
             ct["table:style-name"] = "ce1";
             break;
           default:
@@ -39275,7 +39530,7 @@ var ExcelService = class {
         amount: "\u91D1\u989D",
         type: "\u7C7B\u578B",
         category: "\u5206\u7C7B",
-        account: "\u8D26\u6237",
+        account: "\u9ED8\u8BA4",
         description: "\u63CF\u8FF0",
         currency: "\u8D27\u5E01"
       },
@@ -39288,7 +39543,7 @@ var ExcelService = class {
         amount: "100.00",
         type: "\u652F\u51FA",
         category: "\u9910\u996E",
-        account: "\u73B0\u91D1\u8D26\u6237",
+        account: "\u9ED8\u8BA4",
         description: "\u5348\u9910",
         currency: this.settings.defaultCurrency
       }
@@ -40484,8 +40739,453 @@ var DEFAULT_SETTINGS = {
   recurringTransactionsFilePath: "Finance/RecurringTransactions"
 };
 
+// src/services/SummaryService.ts
+var SummaryService = class {
+  constructor(app, settings, transactionService) {
+    this.app = app;
+    this.settings = settings;
+    this.transactionService = transactionService;
+  }
+  async getDailySummary(date) {
+    const period = {
+      start: startOfDay(date),
+      end: endOfDay(date)
+    };
+    return this.generateSummary(period, "daily");
+  }
+  async getWeeklySummary(date) {
+    const period = {
+      start: startOfWeek(date),
+      end: endOfWeek(date)
+    };
+    return this.generateSummary(period, "weekly");
+  }
+  async getMonthlySummary(date) {
+    const period = {
+      start: startOfMonth(date),
+      end: endOfMonth(date)
+    };
+    return this.generateSummary(period, "monthly");
+  }
+  async getQuarterlySummary(date) {
+    const period = {
+      start: startOfQuarter(date),
+      end: endOfQuarter(date)
+    };
+    return this.generateSummary(period, "quarterly");
+  }
+  async getYearlySummary(date) {
+    const period = {
+      start: startOfYear(date),
+      end: endOfYear(date)
+    };
+    return this.generateSummary(period, "yearly");
+  }
+  async generateSummary(period, type) {
+    const transactions = await this.transactionService.getTransactions({
+      startDate: period.start,
+      endDate: period.end
+    });
+    const currencyGroups = /* @__PURE__ */ new Map();
+    transactions.forEach((transaction) => {
+      const currency = transaction.currency;
+      if (!currencyGroups.has(currency)) {
+        currencyGroups.set(currency, []);
+      }
+      currencyGroups.get(currency).push(transaction);
+    });
+    const summaries = [];
+    currencyGroups.forEach((transactions2, currency) => {
+      const summary = this.calculateCurrencySummary(transactions2, currency);
+      summaries.push(summary);
+    });
+    const periodLabel = this.generatePeriodLabel(period, type);
+    const markdown = this.generateMarkdownSummary(periodLabel, summaries);
+    return {
+      period: periodLabel,
+      summaries,
+      markdown
+    };
+  }
+  calculateCurrencySummary(transactions, currency) {
+    const totalIncome = transactions.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
+    const totalExpense = transactions.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
+    return {
+      currency,
+      totalIncome,
+      totalExpense,
+      netAmount: totalIncome - totalExpense,
+      transactions
+    };
+  }
+  generatePeriodLabel(period, type) {
+    switch (type) {
+      case "daily":
+        return format(period.start, "yyyy-MM-dd");
+      case "weekly":
+        return `${format(period.start, "yyyy-MM-dd")} to ${format(period.end, "yyyy-MM-dd")}`;
+      case "monthly":
+        return format(period.start, "yyyy-MM");
+      case "quarterly":
+        return `${format(period.start, "yyyy-MM")} to ${format(period.end, "yyyy-MM")}`;
+      case "yearly":
+        return format(period.start, "yyyy");
+      default:
+        return "";
+    }
+  }
+  generateMarkdownSummary(periodLabel, summaries) {
+    let markdown = `# Finance Summary: ${periodLabel}
+
+`;
+    summaries.forEach((summary) => {
+      markdown += `## ${summary.currency}
+
+`;
+      markdown += `### Overview
+`;
+      markdown += `- Income: ${summary.totalIncome.toFixed(2)} ${summary.currency}
+`;
+      markdown += `- Expense: ${summary.totalExpense.toFixed(2)} ${summary.currency}
+`;
+      markdown += `- Net: ${summary.netAmount.toFixed(2)} ${summary.currency}
+
+`;
+      if (summary.transactions.length > 0) {
+        markdown += `### Transactions
+
+`;
+        markdown += `| Date | Description | Amount | Type |
+`;
+        markdown += `|------|-------------|--------|------|
+`;
+        summary.transactions.forEach((transaction) => {
+          const date = format(transaction.date, "yyyy-MM-dd");
+          const amount = transaction.amount.toFixed(2);
+          const type = transaction.type === "income" ? "\u{1F4C8} Income" : "\u{1F4C9} Expense";
+          markdown += `| ${date} | ${transaction.description} | ${amount} | ${type} |
+`;
+        });
+      }
+      markdown += "\n";
+    });
+    return markdown;
+  }
+};
+
+// src/views/FinanceSummaryView.ts
+var import_obsidian13 = require("obsidian");
+var FINANCE_SUMMARY_VIEW = "finance-summary-view";
+var FinanceSummaryView = class extends import_obsidian13.ItemView {
+  constructor(leaf, summaryService) {
+    super(leaf);
+    this.currentDate = /* @__PURE__ */ new Date();
+    this.currentView = "daily";
+    this.summaryService = summaryService;
+  }
+  getViewType() {
+    return FINANCE_SUMMARY_VIEW;
+  }
+  getDisplayText() {
+    return "Finance Summary";
+  }
+  async onOpen() {
+    await this.render();
+  }
+  async render() {
+    const container = this.containerEl.children[1];
+    container.empty();
+    container.addClass("finance-summary-view");
+    const controls = container.createDiv("finance-summary-controls");
+    this.addViewControls(controls);
+    this.addDateControls(controls);
+    const content = container.createDiv("finance-summary-content");
+    await this.renderSummary(content);
+  }
+  addViewControls(container) {
+    const viewControls = container.createDiv("view-controls");
+    const views = ["daily", "weekly", "monthly", "quarterly", "yearly"];
+    views.forEach((view) => {
+      const button = viewControls.createEl("button", {
+        text: view.charAt(0).toUpperCase() + view.slice(1),
+        cls: this.currentView === view ? "is-active" : ""
+      });
+      button.addEventListener("click", () => {
+        this.currentView = view;
+        this.render();
+      });
+    });
+  }
+  addDateControls(container) {
+    const dateControls = container.createDiv("date-controls");
+    const prevButton = dateControls.createEl("button", { text: "\u2190" });
+    prevButton.addEventListener("click", () => {
+      this.navigateDate(-1);
+    });
+    const dateDisplay = dateControls.createDiv("date-display");
+    this.updateDateDisplay(dateDisplay);
+    const nextButton = dateControls.createEl("button", { text: "\u2192" });
+    nextButton.addEventListener("click", () => {
+      this.navigateDate(1);
+    });
+  }
+  updateDateDisplay(element) {
+    let dateText = "";
+    switch (this.currentView) {
+      case "daily":
+        dateText = format(this.currentDate, "yyyy-MM-dd");
+        break;
+      case "weekly":
+        dateText = `Week of ${format(this.currentDate, "yyyy-MM-dd")}`;
+        break;
+      case "monthly":
+        dateText = format(this.currentDate, "yyyy-MM");
+        break;
+      case "quarterly":
+        dateText = `Q${Math.floor(this.currentDate.getMonth() / 3) + 1} ${format(this.currentDate, "yyyy")}`;
+        break;
+      case "yearly":
+        dateText = format(this.currentDate, "yyyy");
+        break;
+    }
+    element.setText(dateText);
+  }
+  navigateDate(direction) {
+    switch (this.currentView) {
+      case "daily":
+        this.currentDate.setDate(this.currentDate.getDate() + direction);
+        break;
+      case "weekly":
+        this.currentDate.setDate(this.currentDate.getDate() + direction * 7);
+        break;
+      case "monthly":
+        this.currentDate.setMonth(this.currentDate.getMonth() + direction);
+        break;
+      case "quarterly":
+        this.currentDate.setMonth(this.currentDate.getMonth() + direction * 3);
+        break;
+      case "yearly":
+        this.currentDate.setFullYear(this.currentDate.getFullYear() + direction);
+        break;
+    }
+    this.render();
+  }
+  async renderSummary(container) {
+    let summary;
+    switch (this.currentView) {
+      case "daily":
+        summary = await this.summaryService.getDailySummary(this.currentDate);
+        break;
+      case "weekly":
+        summary = await this.summaryService.getWeeklySummary(this.currentDate);
+        break;
+      case "monthly":
+        summary = await this.summaryService.getMonthlySummary(this.currentDate);
+        break;
+      case "quarterly":
+        summary = await this.summaryService.getQuarterlySummary(this.currentDate);
+        break;
+      case "yearly":
+        summary = await this.summaryService.getYearlySummary(this.currentDate);
+        break;
+    }
+    if (!summary)
+      return;
+    const markdownContainer = container.createDiv("markdown-preview-view markdown-rendered");
+    await import_obsidian13.MarkdownRenderer.renderMarkdown(summary.markdown, markdownContainer, "", this);
+  }
+};
+
+// src/services/SummaryQueryService.ts
+var SummaryQueryService = class {
+  constructor(app, summaryService) {
+    this.app = app;
+    this.summaryService = summaryService;
+  }
+  async processQuery(query) {
+    try {
+      const queryObj = this.parseQuery(query);
+      const date = queryObj.date ? parseISO(queryObj.date) : /* @__PURE__ */ new Date();
+      let summary = null;
+      switch (queryObj.type) {
+        case "daily":
+          summary = await this.summaryService.getDailySummary(date);
+          break;
+        case "weekly":
+          summary = await this.summaryService.getWeeklySummary(date);
+          break;
+        case "monthly":
+          summary = await this.summaryService.getMonthlySummary(date);
+          break;
+        case "quarterly":
+          summary = await this.summaryService.getQuarterlySummary(date);
+          break;
+        case "yearly":
+          summary = await this.summaryService.getYearlySummary(date);
+          break;
+      }
+      if (!summary)
+        return "No data available";
+      return this.generateMarkdown(summary, queryObj);
+    } catch (error) {
+      return `Error: ${error.message}`;
+    }
+  }
+  parseQuery(query) {
+    const lines = query.split("\n").map((line) => line.trim()).filter((line) => line);
+    const queryObj = {
+      type: "daily",
+      showTransactions: true,
+      groupBy: "none"
+    };
+    for (const line of lines) {
+      const [key, value] = line.split(":").map((part) => part.trim());
+      switch (key.toLowerCase()) {
+        case "type":
+          if (["daily", "weekly", "monthly", "quarterly", "yearly"].includes(value)) {
+            queryObj.type = value;
+          }
+          break;
+        case "date":
+          queryObj.date = value;
+          break;
+        case "currencies":
+          queryObj.currencies = value.split(",").map((c) => c.trim());
+          break;
+        case "showtransactions":
+          queryObj.showTransactions = value.toLowerCase() === "true";
+          break;
+        case "groupby":
+          if (["category", "account", "none"].includes(value)) {
+            queryObj.groupBy = value;
+          }
+          break;
+      }
+    }
+    return queryObj;
+  }
+  generateMarkdown(summary, query) {
+    let markdown = `# Finance Summary: ${summary.period}
+
+`;
+    const filteredSummaries = query.currencies ? summary.summaries.filter((s) => {
+      var _a;
+      return (_a = query.currencies) == null ? void 0 : _a.includes(s.currency);
+    }) : summary.summaries;
+    if (query.groupBy === "none") {
+      filteredSummaries.forEach((currencySummary) => {
+        var _a;
+        markdown += this.generateCurrencySummary(currencySummary, (_a = query.showTransactions) != null ? _a : true);
+      });
+    } else {
+      filteredSummaries.forEach((currencySummary) => {
+        var _a, _b;
+        markdown += this.generateGroupedSummary(
+          currencySummary,
+          (_a = query.groupBy) != null ? _a : "none",
+          (_b = query.showTransactions) != null ? _b : true
+        );
+      });
+    }
+    return markdown;
+  }
+  generateCurrencySummary(summary, showTransactions) {
+    let markdown = `## ${summary.currency}
+
+`;
+    markdown += `### Overview
+`;
+    markdown += `- Income: ${summary.totalIncome.toFixed(2)} ${summary.currency}
+`;
+    markdown += `- Expense: ${summary.totalExpense.toFixed(2)} ${summary.currency}
+`;
+    markdown += `- Net: ${summary.netAmount.toFixed(2)} ${summary.currency}
+
+`;
+    if (showTransactions && summary.transactions.length > 0) {
+      markdown += `### Transactions
+
+`;
+      markdown += `| Date | Description | Amount | Type |
+`;
+      markdown += `|------|-------------|--------|------|
+`;
+      summary.transactions.forEach((transaction) => {
+        const date = format(transaction.date, "yyyy-MM-dd");
+        const amount = transaction.amount.toFixed(2);
+        const type = transaction.type === "income" ? "\u{1F4C8} Income" : "\u{1F4C9} Expense";
+        markdown += `| ${date} | ${transaction.description || ""} | ${amount} | ${type} |
+`;
+      });
+    }
+    markdown += "\n";
+    return markdown;
+  }
+  generateGroupedSummary(summary, groupBy, showTransactions) {
+    if (groupBy === "none") {
+      return this.generateCurrencySummary(summary, showTransactions);
+    }
+    let markdown = `## ${summary.currency}
+
+`;
+    markdown += `### Overview
+`;
+    markdown += `- Income: ${summary.totalIncome.toFixed(2)} ${summary.currency}
+`;
+    markdown += `- Expense: ${summary.totalExpense.toFixed(2)} ${summary.currency}
+`;
+    markdown += `- Net: ${summary.netAmount.toFixed(2)} ${summary.currency}
+
+`;
+    const groups = /* @__PURE__ */ new Map();
+    summary.transactions.forEach((transaction) => {
+      const key = groupBy === "category" ? transaction.category : transaction.account;
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key).push(transaction);
+    });
+    markdown += `### ${groupBy.charAt(0).toUpperCase() + groupBy.slice(1)} Summary
+
+`;
+    markdown += `| ${groupBy.charAt(0).toUpperCase() + groupBy.slice(1)} | Income | Expense | Net |
+`;
+    markdown += `|------|--------|---------|-----|
+`;
+    groups.forEach((transactions, key) => {
+      const income = transactions.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0);
+      const expense = transactions.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0);
+      const net = income - expense;
+      markdown += `| ${key} | ${income.toFixed(2)} | ${expense.toFixed(2)} | ${net.toFixed(2)} |
+`;
+    });
+    markdown += "\n";
+    if (showTransactions) {
+      groups.forEach((transactions, key) => {
+        markdown += `#### ${key}
+
+`;
+        markdown += `| Date | Description | Amount | Type |
+`;
+        markdown += `|------|-------------|--------|------|
+`;
+        transactions.forEach((transaction) => {
+          const date = format(transaction.date, "yyyy-MM-dd");
+          const amount = transaction.amount.toFixed(2);
+          const type = transaction.type === "income" ? "\u{1F4C8} Income" : "\u{1F4C9} Expense";
+          markdown += `| ${date} | ${transaction.description || ""} | ${amount} | ${type} |
+`;
+        });
+        markdown += "\n";
+      });
+    }
+    return markdown;
+  }
+};
+
 // src/main.ts
-var FinancePlugin = class extends import_obsidian13.Plugin {
+var import_obsidian15 = require("obsidian");
+var FinancePlugin = class extends import_obsidian14.Plugin {
   async onload() {
     await this.loadSettings();
     this.transactionService = new TransactionService(this.app, this.settings);
@@ -40499,6 +41199,8 @@ var FinancePlugin = class extends import_obsidian13.Plugin {
       this.budgetService,
       this.recurringTransactionService
     );
+    this.summaryService = new SummaryService(this.app, this.settings, this.transactionService);
+    this.summaryQueryService = new SummaryQueryService(this.app, this.summaryService);
     await Promise.all([
       this.transactionService.initialize(),
       this.budgetService.initialize(),
@@ -40517,6 +41219,10 @@ var FinancePlugin = class extends import_obsidian13.Plugin {
     this.registerView(
       CHART_VIEW_TYPE,
       (leaf) => this.chartView = new ChartView(leaf, this.chartService)
+    );
+    this.registerView(
+      FINANCE_SUMMARY_VIEW,
+      (leaf) => new FinanceSummaryView(leaf, this.summaryService)
     );
     this.addCommand({
       id: "finance:show-finance-table",
@@ -40562,16 +41268,29 @@ var FinancePlugin = class extends import_obsidian13.Plugin {
         }
       }
     });
+    this.addCommand({
+      id: "show-finance-summary",
+      name: "Show Finance Summary",
+      callback: () => {
+        this.activateView();
+      }
+    });
     this.addSettingTab(new FinanceSettingTab(this.app, this));
     this.registerMarkdownCodeBlockProcessor("finance", async (source, el, ctx) => {
       const chart = await this.chartService.generateChart(source);
       el.appendChild(chart);
+    });
+    this.registerMarkdownCodeBlockProcessor("finance-summary", async (source, el, ctx) => {
+      const markdown = await this.summaryQueryService.processQuery(source);
+      const container = el.createDiv("markdown-preview-view markdown-rendered");
+      await import_obsidian15.MarkdownRenderer.renderMarkdown(markdown, container, "", this);
     });
     this.app.workspace.onLayoutReady(() => {
       this.activateView();
     });
   }
   async onunload() {
+    this.app.workspace.detachLeavesOfType(FINANCE_SUMMARY_VIEW);
   }
   async activateView() {
     const { workspace } = this.app;
@@ -40603,7 +41322,7 @@ var FinancePlugin = class extends import_obsidian13.Plugin {
     }
   }
 };
-var FinanceSettingTab = class extends import_obsidian13.PluginSettingTab {
+var FinanceSettingTab = class extends import_obsidian14.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -40612,27 +41331,31 @@ var FinanceSettingTab = class extends import_obsidian13.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl("h2", { text: "Finance Note Settings" });
-    new import_obsidian13.Setting(containerEl).setName("Currency").setDesc("Default currency for transactions").addText((text) => text.setPlaceholder("Enter currency code").setValue(this.plugin.settings.defaultCurrency).onChange(async (value) => {
+    new import_obsidian14.Setting(containerEl).setName("Currency").setDesc("Default currency for transactions").addText((text) => text.setPlaceholder("Enter currency code").setValue(this.plugin.settings.defaultCurrency).onChange(async (value) => {
       this.plugin.settings.defaultCurrency = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian13.Setting(containerEl).setName("Account").setDesc("Default account for transactions").addText((text) => text.setPlaceholder("Enter account name").setValue(this.plugin.settings.defaultAccount).onChange(async (value) => {
+    new import_obsidian14.Setting(containerEl).setName("Account").setDesc("Default account for transactions").addText((text) => text.setPlaceholder("Enter account name").setValue(this.plugin.settings.defaultAccount).onChange(async (value) => {
       this.plugin.settings.defaultAccount = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian13.Setting(containerEl).setName("Categories").setDesc("Default categories for transactions").addText((text) => text.setPlaceholder("Enter categories separated by commas").setValue(this.plugin.settings.defaultCategories.join(", ")).onChange(async (value) => {
+    new import_obsidian14.Setting(containerEl).setName("Categories").setDesc("Default categories for transactions").addText((text) => text.setPlaceholder("Enter categories separated by commas").setValue(this.plugin.settings.defaultCategories.join(", ")).onChange(async (value) => {
       this.plugin.settings.defaultCategories = value.split(",").map((c) => c.trim());
       await this.plugin.saveSettings();
     }));
-    new import_obsidian13.Setting(containerEl).setName("Finance Note File Path").setDesc("Default path for finance note files").addText((text) => text.setPlaceholder("Enter finance note file path").setValue(this.plugin.settings.financeFilePath).onChange(async (value) => {
+    new import_obsidian14.Setting(containerEl).setName("Finance Note File Path").setDesc("Default path for finance note files").addText((text) => text.setPlaceholder("Enter finance note file path").setValue(this.plugin.settings.financeFilePath).onChange(async (value) => {
       this.plugin.settings.financeFilePath = value;
       this.plugin.settings.budgetFilePath = value;
       this.plugin.settings.recurringTransactionsFilePath = value;
       await this.plugin.saveSettings();
     }));
+    new import_obsidian14.Setting(containerEl).setName("Finance File Path").setDesc("The path where finance files will be stored").addText((text) => text.setPlaceholder("Enter path").setValue(this.plugin.settings.financeFilePath).onChange(async (value) => {
+      this.plugin.settings.financeFilePath = value;
+      await this.plugin.saveSettings();
+    }));
   }
 };
-var AddTransactionModal2 = class extends import_obsidian13.Modal {
+var AddTransactionModal2 = class extends import_obsidian14.Modal {
   constructor(app, transactionService) {
     super(app);
     this.transactionService = transactionService;
@@ -40709,10 +41432,10 @@ var AddTransactionModal2 = class extends import_obsidian13.Modal {
           currency: this.currencySelect.value
         };
         await this.transactionService.addTransaction(transaction);
-        new import_obsidian13.Notice("Transaction added successfully");
+        new import_obsidian14.Notice("Transaction added successfully");
         this.close();
       } catch (error) {
-        new import_obsidian13.Notice("Failed to add transaction: " + error.message);
+        new import_obsidian14.Notice("Failed to add transaction: " + error.message);
       }
     });
   }
@@ -40721,7 +41444,7 @@ var AddTransactionModal2 = class extends import_obsidian13.Modal {
     contentEl.empty();
   }
 };
-var AddRecurringTransactionModal2 = class extends import_obsidian13.Modal {
+var AddRecurringTransactionModal2 = class extends import_obsidian14.Modal {
   constructor(app, recurringTransactionService, transactionService) {
     super(app);
     this.recurringTransactionService = recurringTransactionService;
@@ -40814,10 +41537,10 @@ var AddRecurringTransactionModal2 = class extends import_obsidian13.Modal {
           endDate: this.endDateInput.value ? new Date(this.endDateInput.value) : void 0,
           currency: this.currencySelect.value
         });
-        new import_obsidian13.Notice("Recurring transaction added successfully");
+        new import_obsidian14.Notice("Recurring transaction added successfully");
         this.close();
       } catch (error) {
-        new import_obsidian13.Notice("Failed to add recurring transaction: " + error.message);
+        new import_obsidian14.Notice("Failed to add recurring transaction: " + error.message);
       }
     });
   }
@@ -40826,7 +41549,7 @@ var AddRecurringTransactionModal2 = class extends import_obsidian13.Modal {
     contentEl.empty();
   }
 };
-var AddBudgetModal2 = class extends import_obsidian13.Modal {
+var AddBudgetModal2 = class extends import_obsidian14.Modal {
   constructor(app, budgetService, transactionService) {
     super(app);
     this.budgetService = budgetService;
@@ -40922,10 +41645,10 @@ var AddBudgetModal2 = class extends import_obsidian13.Modal {
           description: this.descriptionInput.value,
           currency: this.currencySelect.value
         });
-        new import_obsidian13.Notice("Budget added successfully");
+        new import_obsidian14.Notice("Budget added successfully");
         this.close();
       } catch (error) {
-        new import_obsidian13.Notice("Failed to add budget: " + error.message);
+        new import_obsidian14.Notice("Failed to add budget: " + error.message);
       }
     });
   }

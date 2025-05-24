@@ -40,7 +40,7 @@ export class EditTransactionModal extends Modal {
                 text.setValue(this.date)
                     .onChange(value => this.date = value);
                 text.inputEl.setAttribute('type', 'date');
-            });
+        });
 
         // 金额
         new Setting(contentEl)
@@ -51,7 +51,7 @@ export class EditTransactionModal extends Modal {
                 text.inputEl.setAttribute('type', 'number');
                 text.inputEl.setAttribute('step', '0.01');
                 text.inputEl.setAttribute('required', 'true');
-            });
+        });
 
         // 类型
         new Setting(contentEl)
@@ -72,7 +72,7 @@ export class EditTransactionModal extends Modal {
                 });
                 dropdown.setValue(this.category);
                 dropdown.onChange(value => this.category = value);
-            });
+        });
 
         // 账户
         new Setting(contentEl)
@@ -84,7 +84,7 @@ export class EditTransactionModal extends Modal {
                 });
                 dropdown.setValue(this.account);
                 dropdown.onChange(value => this.account = value);
-            });
+        });
 
         // 描述
         new Setting(contentEl)
@@ -103,7 +103,7 @@ export class EditTransactionModal extends Modal {
                 });
                 dropdown.setValue(this.currency);
                 dropdown.onChange(value => this.currency = value);
-            });
+        });
 
         // 提交按钮
         new Setting(contentEl)
@@ -117,7 +117,7 @@ export class EditTransactionModal extends Modal {
                     }
                     try {
                         const updatedTransaction: Transaction = {
-                            ...this.transaction,
+                    ...this.transaction,
                             date: new Date(this.date),
                             amount: this.amount,
                             type: this.type,
@@ -127,11 +127,11 @@ export class EditTransactionModal extends Modal {
                             currency: this.currency
                         };
                         await this.transactionService.updateTransaction(updatedTransaction);
-                        new Notice('Transaction updated successfully');
-                        this.close();
-                    } catch (error) {
-                        new Notice('Failed to update transaction: ' + error.message);
-                    }
+                new Notice('Transaction updated successfully');
+                this.close();
+            } catch (error) {
+                new Notice('Failed to update transaction: ' + error.message);
+            }
                 }));
     }
 

@@ -7,6 +7,10 @@ import { ExcelService } from './services/ExcelService';
 import { FinanceTableView, FINANCE_TABLE_VIEW } from './views/FinanceTableView';
 import { ChartView, CHART_VIEW_TYPE } from './views/ChartView';
 import { FinanceSettings, DEFAULT_SETTINGS } from './settings';
+import { SummaryService } from './services/SummaryService';
+import { FinanceSummaryView, FINANCE_SUMMARY_VIEW } from './views/FinanceSummaryView';
+import { SummaryQueryService } from './services/SummaryQueryService';
+import { MarkdownRenderer } from 'obsidian';
 
 export default class FinancePlugin extends Plugin {
 	settings: FinanceSettings;
@@ -15,6 +19,8 @@ export default class FinancePlugin extends Plugin {
 	recurringTransactionService: RecurringTransactionService;
 	chartService: ChartService;
 	excelService: ExcelService;
+	summaryService: SummaryService;
+	summaryQueryService: SummaryQueryService;
 	private chartView: ChartView;
 
 	async onload() {
@@ -32,6 +38,8 @@ export default class FinancePlugin extends Plugin {
 			this.budgetService,
 			this.recurringTransactionService
 		);
+		this.summaryService = new SummaryService(this.app, this.settings, this.transactionService);
+		this.summaryQueryService = new SummaryQueryService(this.app, this.summaryService);
 
 		// 初始化服务
 		await Promise.all([
@@ -56,6 +64,12 @@ export default class FinancePlugin extends Plugin {
 		this.registerView(
 			CHART_VIEW_TYPE,
 			(leaf) => (this.chartView = new ChartView(leaf, this.chartService))
+		);
+
+		// 注册财务摘要视图
+		this.registerView(
+			FINANCE_SUMMARY_VIEW,
+			(leaf) => new FinanceSummaryView(leaf, this.summaryService)
 		);
 
 		// 添加命令
@@ -111,6 +125,15 @@ export default class FinancePlugin extends Plugin {
 			},
 		});
 
+		// 添加财务摘要命令
+		this.addCommand({
+			id: 'show-finance-summary',
+			name: 'Show Finance Summary',
+			callback: () => {
+				this.activateView();
+			}
+		});
+
 		// 添加设置标签页
 		this.addSettingTab(new FinanceSettingTab(this.app, this));
 
@@ -118,6 +141,13 @@ export default class FinancePlugin extends Plugin {
 		this.registerMarkdownCodeBlockProcessor('finance', async (source, el, ctx) => {
 			const chart = await this.chartService.generateChart(source);
 			el.appendChild(chart);
+		});
+
+		// 注册财务摘要代码块
+		this.registerMarkdownCodeBlockProcessor('finance-summary', async (source, el, ctx) => {
+			const markdown = await this.summaryQueryService.processQuery(source);
+			const container = el.createDiv('markdown-preview-view markdown-rendered');
+			await MarkdownRenderer.renderMarkdown(markdown, container, '', this);
 		});
 
 		// 在插件加载时自动添加 Finance Table 到右侧边栏
@@ -128,6 +158,7 @@ export default class FinancePlugin extends Plugin {
 
 	async onunload() {
 		// 清理资源
+		this.app.workspace.detachLeavesOfType(FINANCE_SUMMARY_VIEW);
 	}
 
 	private async activateView() {
@@ -224,6 +255,17 @@ class FinanceSettingTab extends PluginSettingTab {
 					this.plugin.settings.financeFilePath = value;
 					this.plugin.settings.budgetFilePath = value;
 					this.plugin.settings.recurringTransactionsFilePath = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Finance File Path')
+			.setDesc('The path where finance files will be stored')
+			.addText(text => text
+				.setPlaceholder('Enter path')
+				.setValue(this.plugin.settings.financeFilePath)
+				.onChange(async (value) => {
+					this.plugin.settings.financeFilePath = value;
 					await this.plugin.saveSettings();
 				}));
 	}

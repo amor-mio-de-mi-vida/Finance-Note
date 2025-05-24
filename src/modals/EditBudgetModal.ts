@@ -41,7 +41,7 @@ export class EditBudgetModal extends Modal {
                 text.inputEl.setAttribute('type', 'number');
                 text.inputEl.setAttribute('step', '0.01');
                 text.inputEl.setAttribute('required', 'true');
-            });
+        });
 
         // 分类
         new Setting(contentEl)
@@ -53,7 +53,7 @@ export class EditBudgetModal extends Modal {
                 });
                 dropdown.setValue(this.category);
                 dropdown.onChange(value => this.category = value);
-            });
+        });
 
         // 周期
         new Setting(contentEl)
@@ -81,7 +81,7 @@ export class EditBudgetModal extends Modal {
                 });
                 dropdown.setValue(this.currency);
                 dropdown.onChange(value => this.currency = value);
-            });
+        });
 
         // 提交按钮
         new Setting(contentEl)
@@ -95,7 +95,7 @@ export class EditBudgetModal extends Modal {
                     }
                     try {
                         const updatedBudget: Budget = {
-                            ...this.budget,
+                    ...this.budget,
                             amount: this.amount,
                             category: this.category,
                             period: this.period,
@@ -103,11 +103,11 @@ export class EditBudgetModal extends Modal {
                             currency: this.currency
                         };
                         await this.budgetService.updateBudget(updatedBudget);
-                        new Notice('Budget updated successfully');
-                        this.close();
-                    } catch (error) {
-                        new Notice('Failed to update budget: ' + error.message);
-                    }
+                new Notice('Budget updated successfully');
+                this.close();
+            } catch (error) {
+                new Notice('Failed to update budget: ' + error.message);
+            }
                 }));
     }
 

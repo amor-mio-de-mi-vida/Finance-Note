@@ -119,7 +119,7 @@ export class AddRecurringTransactionModal extends Modal {
 
         submitButton.addEventListener('click', async (e) => {
             e.preventDefault();
-            try {
+                    try {
                 const recurringTransaction = {
                     amount: parseFloat(this.amountInput.value),
                     type: this.typeSelect.value as 'income' | 'expense',
@@ -130,14 +130,14 @@ export class AddRecurringTransactionModal extends Modal {
                     startDate: new Date(this.startDateInput.value),
                     endDate: this.endDateInput.value ? new Date(this.endDateInput.value) : undefined,
                     currency: this.currencySelect.value
-                };
+                        };
 
-                await this.recurringTransactionService.addRecurringTransaction(recurringTransaction);
+                        await this.recurringTransactionService.addRecurringTransaction(recurringTransaction);
                 new Notice('Recurring transaction added successfully');
-                this.close();
-            } catch (error) {
+                        this.close();
+                    } catch (error) {
                 new Notice('Failed to add recurring transaction: ' + error.message);
-            }
+                    }
         });
     }
 
