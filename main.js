@@ -40479,7 +40479,7 @@ var DEFAULT_SETTINGS = {
   currencies: ["CNY", "USD", "EUR", "JPY", "GBP", "HKD", "SGD", "AUD", "CAD"],
   defaultAccount: "\u73B0\u91D1",
   defaultCategories: ["\u9910\u996E", "\u4EA4\u901A", "\u8D2D\u7269", "\u5A31\u4E50", "\u4F4F\u623F", "\u533B\u7597", "\u6559\u80B2", "\u5176\u4ED6"],
-  financeFilePath: "Finance/Transactions",
+  financeFilePath: "Finance",
   budgetFilePath: "Finance/Budgets",
   recurringTransactionsFilePath: "Finance/RecurringTransactions"
 };

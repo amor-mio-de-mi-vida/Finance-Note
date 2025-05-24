@@ -16,7 +16,7 @@ export const DEFAULT_SETTINGS: FinanceSettings = {
     currencies: ['CNY', 'USD', 'EUR', 'JPY', 'GBP', 'HKD', 'SGD', 'AUD', 'CAD'],
     defaultAccount: '现金',
     defaultCategories: ['餐饮', '交通', '购物', '娱乐', '住房', '医疗', '教育', '其他'],
-    financeFilePath: 'Finance/Transactions',
+    financeFilePath: 'Finance',
     budgetFilePath: 'Finance/Budgets',
     recurringTransactionsFilePath: 'Finance/RecurringTransactions'
 };
@@ -90,7 +90,7 @@ export class FinanceSettingTab extends PluginSettingTab {
             .setName('Transactions File Path')
             .setDesc('Set the folder path where transaction files will be saved')
             .addText(text => text
-                .setPlaceholder('Finance/Transactions')
+                .setPlaceholder('Finance')
                 .setValue(this.plugin.settings.financeFilePath)
                 .onChange(async (value) => {
                     this.plugin.settings.financeFilePath = value;
